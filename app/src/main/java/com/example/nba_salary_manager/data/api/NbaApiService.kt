@@ -24,7 +24,9 @@ interface NbaApiService {
     suspend fun getGames(
         @Query("seasons[]") seasons: List<Int>? = null,
         @Query("per_page") perPage: Int = 25,
-        @Query("cursor") cursor: Int? = null
+        @Query("cursor") cursor: Int? = null,
+        @Query("start_date") startDate: String? = null,
+        @Query("end_date") endDate: String? = null
     ): ApiResponse<Game>
 
     @GET("stats")

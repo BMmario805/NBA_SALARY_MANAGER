@@ -10,6 +10,9 @@ import com.example.nba_salary_manager.data.model.Game
 import com.example.nba_salary_manager.data.model.Player
 import com.example.nba_salary_manager.data.model.Team
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
 
 class NbaViewModel : ViewModel() {
 
@@ -42,7 +45,7 @@ class NbaViewModel : ViewModel() {
         private set
     var gamesError by mutableStateOf<String?>(null)
         private set
-    var selectedSeason by mutableStateOf(2024)
+    var selectedSeason by mutableStateOf(2026)
         private set
     var gamesNextCursor by mutableStateOf<Int?>(null)
         private set
@@ -90,7 +93,7 @@ class NbaViewModel : ViewModel() {
                     search = playerSearchQuery.ifBlank { null },
                     perPage = 25
                 )
-                players = response.data
+                players = response.data.sortedByDescending { it.id }
                 playersNextCursor = response.meta?.nextCursor
                 playersHasMore = response.meta?.nextCursor != null
             } catch (e: Exception) {
@@ -114,7 +117,7 @@ class NbaViewModel : ViewModel() {
                     perPage = 25,
                     cursor = cursor
                 )
-                players = players + response.data
+                players = (players + response.data).sortedByDescending { it.id }
                 playersNextCursor = response.meta?.nextCursor
                 playersHasMore = response.meta?.nextCursor != null
             } catch (e: Exception) {
@@ -138,11 +141,28 @@ class NbaViewModel : ViewModel() {
             gamesNextCursor = null
             gamesHasMore = true
             try {
+                val apiSeason = if (selectedSeason == 2026) 2025 else selectedSeason
+                
+                var startDate: String? = null
+                var endDate: String? = null
+                if (selectedSeason == 2026) {
+                    val cal = Calendar.getInstance()
+                    val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+                    
+                    cal.add(Calendar.DAY_OF_YEAR, -1)
+                    startDate = sdf.format(cal.time)
+                    
+                    cal.add(Calendar.DAY_OF_YEAR, 2)
+                    endDate = sdf.format(cal.time)
+                }
+                
                 val response = api.getGames(
-                    seasons = listOf(selectedSeason),
-                    perPage = 25
+                    seasons = listOf(apiSeason),
+                    perPage = 50,
+                    startDate = startDate,
+                    endDate = endDate
                 )
-                games = response.data
+                games = response.data.sortedByDescending { it.date }
                 gamesNextCursor = response.meta?.nextCursor
                 gamesHasMore = response.meta?.nextCursor != null
             } catch (e: Exception) {
@@ -157,12 +177,29 @@ class NbaViewModel : ViewModel() {
         viewModelScope.launch {
             gamesLoading = true
             try {
+                val apiSeason = if (selectedSeason == 2026) 2025 else selectedSeason
+                
+                var startDate: String? = null
+                var endDate: String? = null
+                if (selectedSeason == 2026) {
+                    val cal = Calendar.getInstance()
+                    val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+                    
+                    cal.add(Calendar.DAY_OF_YEAR, -1)
+                    startDate = sdf.format(cal.time)
+                    
+                    cal.add(Calendar.DAY_OF_YEAR, 2)
+                    endDate = sdf.format(cal.time)
+                }
+
                 val response = api.getGames(
-                    seasons = listOf(selectedSeason),
-                    perPage = 25,
-                    cursor = cursor
+                    seasons = listOf(apiSeason),
+                    perPage = 50,
+                    cursor = cursor,
+                    startDate = startDate,
+                    endDate = endDate
                 )
-                games = games + response.data
+                games = (games + response.data).sortedByDescending { it.date }
                 gamesNextCursor = response.meta?.nextCursor
                 gamesHasMore = response.meta?.nextCursor != null
             } catch (e: Exception) {

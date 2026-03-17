@@ -20,6 +20,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.nba_salary_manager.data.model.Game
 import com.example.nba_salary_manager.viewmodel.NbaViewModel
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.TimeZone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,7 +53,7 @@ fun GamesScreen(viewModel: NbaViewModel, modifier: Modifier = Modifier) {
                     color = Color.White
                 )
                 Text(
-                    "Temporada ${selectedSeason}-${selectedSeason + 1}",
+                    if (selectedSeason == 2026) "Año 2026 (Temp. 25-26)" else "Temporada ${selectedSeason}-${selectedSeason + 1}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color.White.copy(alpha = 0.8f)
                 )
@@ -71,7 +74,7 @@ fun GamesScreen(viewModel: NbaViewModel, modifier: Modifier = Modifier) {
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            listOf(2024, 2023, 2022, 2021).forEach { season ->
+            listOf(2026, 2025, 2024, 2023).forEach { season ->
                 FilterChip(
                     selected = selectedSeason == season,
                     onClick = { viewModel.updateSeason(season) },
@@ -167,6 +170,36 @@ fun GamesScreen(viewModel: NbaViewModel, modifier: Modifier = Modifier) {
     }
 }
 
+private fun formatGameDate(dateString: String?): String {
+    if (dateString == null) return ""
+    return try {
+        val cleanDate = if (dateString.contains("T")) dateString.split("T")[0] else dateString
+        cleanDate.replace("-", "/")
+    } catch (e: Exception) {
+        dateString.replace("-", "/")
+    }
+}
+
+private fun formatGameTime(status: String?): String {
+    if (status == null) return ""
+    return try {
+        if (status.contains("T") && status.contains("Z")) {
+            status.split("T")[1].substring(0, 5)
+        } else if (status.contains("AM", ignoreCase = true) || status.contains("PM", ignoreCase = true)) {
+            val timePart = status.split(" ")[0]
+            val amPm = if (status.contains("PM", ignoreCase = true)) "PM" else "AM"
+            val inputFormat = SimpleDateFormat("h:mm a", Locale.US)
+            val outputFormat = SimpleDateFormat("HH:mm", Locale.US)
+            val date = inputFormat.parse("$timePart $amPm")
+            date?.let { outputFormat.format(it) } ?: status
+        } else {
+            status
+        }
+    } catch (e: Exception) {
+        status
+    }
+}
+
 @Composable
 private fun GameCard(game: Game) {
     val statusColor = when {
@@ -189,8 +222,9 @@ private fun GameCard(game: Game) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    game.date,
+                    formatGameDate(game.date),
                     style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Surface(
@@ -198,7 +232,7 @@ private fun GameCard(game: Game) {
                     color = statusColor.copy(alpha = 0.15f)
                 ) {
                     Text(
-                        game.status,
+                        formatGameTime(game.status),
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
