@@ -30,6 +30,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.nba_salary_manager.data.model.Player
+import com.example.nba_salary_manager.ui.components.PlayerAvatar
 import com.example.nba_salary_manager.viewmodel.NbaViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -203,24 +204,30 @@ private fun PlayerCard(player: Player) {
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                // Jersey number badge
                 Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(
-                            Brush.verticalGradient(
-                                listOf(Color(0xFF552583), Color(0xFFFDB927))
-                            )
-                        ),
-                    contentAlignment = Alignment.Center
+                    contentAlignment = Alignment.BottomEnd
                 ) {
-                    Text(
-                        player.jerseyNumber ?: "#",
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 16.sp,
-                        color = Color.White
+                    PlayerAvatar(
+                        playerName = "${player.firstName} ${player.lastName}",
+                        // balldontlie id != NBA personId, use name resolution like roster templates.
+                        nbaPlayerId = null,
+                        modifier = Modifier.size(56.dp),
+                        fallbackColor = Color(0xFF552583)
                     )
+
+                    Surface(
+                        shape = CircleShape,
+                        color = Color(0xFF552583),
+                        tonalElevation = 2.dp
+                    ) {
+                        Text(
+                            text = player.jerseyNumber ?: "#",
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 11.sp,
+                            color = Color.White
+                        )
+                    }
                 }
 
                 Spacer(Modifier.width(16.dp))

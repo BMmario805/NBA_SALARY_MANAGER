@@ -7,9 +7,10 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
@@ -23,6 +24,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import com.example.nba_salary_manager.ui.screens.GamesScreen
 import com.example.nba_salary_manager.ui.screens.LoginScreen
 import com.example.nba_salary_manager.ui.screens.PlayersScreen
+import com.example.nba_salary_manager.ui.screens.RosterTemplatesScreen
 import com.example.nba_salary_manager.ui.screens.TeamsScreen
 import com.example.nba_salary_manager.ui.theme.NBA_SALARY_MANAGERTheme
 import com.example.nba_salary_manager.viewmodel.AuthViewModel
@@ -37,7 +39,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             NBA_SALARY_MANAGERTheme {
-                val user by authViewModel.currentUser
+                val user = authViewModel.currentUser.value
 
                 if (user == null) {
                     LoginScreen(authViewModel)
@@ -52,7 +54,7 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NBA_SALARY_MANAGERApp(nbaViewModel: NbaViewModel, authViewModel: AuthViewModel) {
-    var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.TEAMS) }
+    var currentDestination by rememberSaveable { mutableStateOf<AppDestinations>(AppDestinations.TEAMS) }
 
     NavigationSuiteScaffold(
         navigationSuiteItems = {
@@ -78,7 +80,7 @@ fun NBA_SALARY_MANAGERApp(nbaViewModel: NbaViewModel, authViewModel: AuthViewMod
                     title = { Text("NBA Manager") },
                     actions = {
                         IconButton(onClick = { authViewModel.signOut() }) {
-                            Icon(Icons.Default.Logout, contentDescription = "Cerrar sesión")
+                            Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Cerrar sesion")
                         }
                     }
                 )
@@ -97,6 +99,10 @@ fun NBA_SALARY_MANAGERApp(nbaViewModel: NbaViewModel, authViewModel: AuthViewMod
                     viewModel = nbaViewModel,
                     modifier = Modifier.padding(innerPadding)
                 )
+                AppDestinations.ROSTERS -> RosterTemplatesScreen(
+                    viewModel = nbaViewModel,
+                    modifier = Modifier.padding(innerPadding)
+                )
             }
         }
     }
@@ -109,4 +115,5 @@ enum class AppDestinations(
     TEAMS("Equipos", Icons.Default.Home),
     PLAYERS("Jugadores", Icons.Default.Person),
     GAMES("Partidos", Icons.Default.DateRange),
+    ROSTERS("Plantillas", Icons.Default.Edit),
 }

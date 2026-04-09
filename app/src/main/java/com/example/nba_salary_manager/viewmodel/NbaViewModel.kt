@@ -8,6 +8,10 @@ import androidx.lifecycle.viewModelScope
 import com.example.nba_salary_manager.data.api.RetrofitClient
 import com.example.nba_salary_manager.data.model.Game
 import com.example.nba_salary_manager.data.model.Player
+import com.example.nba_salary_manager.data.model.RosterPlayerTemplate
+import com.example.nba_salary_manager.data.model.RosterTemplate
+import com.example.nba_salary_manager.data.model.RosterTemplateCategory
+import com.example.nba_salary_manager.data.model.RosterTemplateRepository
 import com.example.nba_salary_manager.data.model.Team
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -15,6 +19,8 @@ import java.util.Calendar
 import java.util.Locale
 
 class NbaViewModel : ViewModel() {
+
+    private val rosterTemplatesCatalog = RosterTemplateRepository.templates
 
     // ── Teams state ──
     var teams by mutableStateOf<List<Team>>(emptyList())
@@ -52,12 +58,82 @@ class NbaViewModel : ViewModel() {
     var gamesHasMore by mutableStateOf(true)
         private set
 
+    var selectedRosterCategory by mutableStateOf(RosterTemplateCategory.CURRENT)
+        private set
+    var activeRosterTemplateId by mutableStateOf(rosterTemplatesCatalog.firstOrNull()?.id)
+        private set
+    var editableRosterName by mutableStateOf(rosterTemplatesCatalog.firstOrNull()?.teamName.orEmpty())
+        private set
+    var editableRosterPlayStyle by mutableStateOf(rosterTemplatesCatalog.firstOrNull()?.playStyle.orEmpty())
+        private set
+    var editableRosterPlayers by mutableStateOf(
+        rosterTemplatesCatalog.firstOrNull()?.players ?: emptyList()
+    )
+        private set
+
     private val api = RetrofitClient.api
 
     init {
         loadTeams()
         loadPlayers()
         loadGames()
+    }
+
+    val rosterTemplates: List<RosterTemplate>
+        get() = rosterTemplatesCatalog
+
+    val filteredRosterTemplates: List<RosterTemplate>
+        get() = rosterTemplatesCatalog.filter { it.category == selectedRosterCategory }
+
+    val activeRosterTemplate: RosterTemplate?
+        get() = rosterTemplatesCatalog.firstOrNull { it.id == activeRosterTemplateId }
+
+    fun updateRosterCategory(category: RosterTemplateCategory) {
+        selectedRosterCategory = category
+    }
+
+    fun useRosterTemplate(templateId: String) {
+        val template = rosterTemplatesCatalog.firstOrNull { it.id == templateId } ?: return
+        activeRosterTemplateId = template.id
+        selectedRosterCategory = template.category
+        editableRosterName = template.teamName
+        editableRosterPlayStyle = template.playStyle
+        editableRosterPlayers = template.players.map { it.copy() }
+    }
+
+    fun updateEditableRosterName(name: String) {
+        editableRosterName = name
+    }
+
+    fun updateEditableRosterPlayStyle(style: String) {
+        editableRosterPlayStyle = style
+    }
+
+    fun updateEditableRosterPlayer(
+        index: Int,
+        transform: (RosterPlayerTemplate) -> RosterPlayerTemplate
+    ) {
+        if (index !in editableRosterPlayers.indices) return
+        val updatedPlayers = editableRosterPlayers.toMutableList()
+        updatedPlayers[index] = transform(updatedPlayers[index])
+        editableRosterPlayers = updatedPlayers
+    }
+
+    fun addEditableRosterPlayer() {
+        editableRosterPlayers = editableRosterPlayers + RosterPlayerTemplate(
+            name = "",
+            position = "",
+            role = "Rotacion",
+            salaryTier = "",
+            note = ""
+        )
+    }
+
+    fun removeEditableRosterPlayer(index: Int) {
+        if (index !in editableRosterPlayers.indices) return
+        editableRosterPlayers = editableRosterPlayers.filterIndexed { currentIndex, _ ->
+            currentIndex != index
+        }
     }
 
     // ── Teams ──

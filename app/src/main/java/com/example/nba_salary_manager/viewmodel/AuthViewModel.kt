@@ -1,5 +1,6 @@
 package com.example.nba_salary_manager.viewmodel
 
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import com.google.firebase.auth.FirebaseAuth
@@ -7,7 +8,7 @@ import com.google.firebase.auth.FirebaseUser
 
 class AuthViewModel : ViewModel() {
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
-    var currentUser = mutableStateOf<FirebaseUser?>(auth.currentUser)
+    val currentUser: MutableState<FirebaseUser?> = mutableStateOf(auth.currentUser)
 
     fun signIn(email: String, pass: String, onResult: (Boolean) -> Unit) {
         if (email.isBlank() || pass.isBlank()) {
