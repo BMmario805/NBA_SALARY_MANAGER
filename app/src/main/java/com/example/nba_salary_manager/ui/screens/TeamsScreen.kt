@@ -5,7 +5,18 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -13,29 +24,71 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.nba_salary_manager.data.model.Team
+import com.example.nba_salary_manager.data.model.TeamStandingSummary
+import com.example.nba_salary_manager.ui.components.TeamLogo
 import com.example.nba_salary_manager.viewmodel.NbaViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
+private enum class ConferenceFilter(val label: String, val value: String?) {
+    ALL("Todas", null),
+    EAST("Este", "East"),
+    WEST("Oeste", "West")
+}
+
+private enum class TeamSortOption(val label: String) {
+    NAME("Nombre"),
+    POSITION("Posicion"),
+    POINTS("Puntos")
+}
+
 @Composable
 fun TeamsScreen(viewModel: NbaViewModel, modifier: Modifier = Modifier) {
     val teams = viewModel.teams
     val isLoading = viewModel.teamsLoading
     val error = viewModel.teamsError
+    val standings = viewModel.teamStandings
+    val teamStatsLoading = viewModel.teamStatsLoading
+    val teamStatsError = viewModel.teamStatsError
+
+    var selectedConference by remember { mutableStateOf(ConferenceFilter.ALL) }
+    var selectedSort by remember { mutableStateOf(TeamSortOption.NAME) }
+
+    val standingsByTeamId = remember(standings) {
+        standings.associateBy { it.team.id }
+    }
+
+    val filteredTeams = remember(teams, selectedConference, selectedSort, standingsByTeamId) {
+        teams
+            .filter { team ->
+            selectedConference.value == null || team.conference == selectedConference.value
+        }
+            .sortedWith(teamComparator(selectedSort, standingsByTeamId))
+    }
 
     Column(modifier = modifier.fillMaxSize()) {
-        // Header
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -48,15 +101,15 @@ fun TeamsScreen(viewModel: NbaViewModel, modifier: Modifier = Modifier) {
         ) {
             Column {
                 Text(
-                    "🏀 Equipos NBA",
+                    "Equipos NBA",
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
                 )
                 Text(
-                    "30 equipos · 2 conferencias",
+                    "30 franquicias actuales con su logo",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White.copy(alpha = 0.8f)
+                    color = Color.White.copy(alpha = 0.82f)
                 )
             }
         }
@@ -67,160 +120,199 @@ fun TeamsScreen(viewModel: NbaViewModel, modifier: Modifier = Modifier) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         CircularProgressIndicator(color = Color(0xFFC8102E))
                         Spacer(Modifier.height(12.dp))
-                        Text("Cargando equipos…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            "Cargando equipos...",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
-            error != null -> {
+
+            error != null && teams.isEmpty() -> {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(32.dp)) {
-                        Text("❌ Error", style = MaterialTheme.typography.titleLarge, color = Color(0xFFC8102E))
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(32.dp)
+                    ) {
+                        Text(
+                            "Error cargando equipos",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = Color(0xFFC8102E)
+                        )
                         Spacer(Modifier.height(8.dp))
-                        Text(error, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            error,
+                            textAlign = TextAlign.Center,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                         Spacer(Modifier.height(16.dp))
                         Button(
                             onClick = { viewModel.loadTeams() },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1D428A))
                         ) {
-                            Icon(Icons.Default.Refresh, contentDescription = null)
+                            androidx.compose.material3.Icon(
+                                Icons.Default.Refresh,
+                                contentDescription = null
+                            )
                             Spacer(Modifier.width(8.dp))
                             Text("Reintentar")
                         }
                     }
                 }
             }
-            else -> {
-                val eastTeams = teams.filter { it.conference == "East" }.sortedBy { it.fullName }
-                val westTeams = teams.filter { it.conference == "West" }.sortedBy { it.fullName }
 
+            else -> {
                 LazyColumn(
                     contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // East Conference
                     item {
-                        ConferenceHeader("Conferencia Este", Color(0xFF1D428A), eastTeams.size)
-                    }
-                    items(eastTeams) { team ->
-                        TeamCard(team)
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(
+                                    "Conferencia",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    ConferenceFilter.entries.forEach { option ->
+                                        FilterChip(
+                                            selected = selectedConference == option,
+                                            onClick = { selectedConference = option },
+                                            label = { Text(option.label) }
+                                        )
+                                    }
+                                }
+                            }
+
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(
+                                    "Ordenar por",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    TeamSortOption.entries.forEach { option ->
+                                        FilterChip(
+                                            selected = selectedSort == option,
+                                            onClick = { selectedSort = option },
+                                            label = { Text(option.label) }
+                                        )
+                                    }
+                                }
+                            }
+
+                            if (selectedSort != TeamSortOption.NAME && teamStatsLoading && standings.isEmpty()) {
+                                Text(
+                                    "Cargando clasificacion para aplicar el orden...",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
                     }
 
-                    item { Spacer(Modifier.height(16.dp)) }
-
-                    // West Conference
-                    item {
-                        ConferenceHeader("Conferencia Oeste", Color(0xFFC8102E), westTeams.size)
-                    }
-                    items(westTeams) { team ->
-                        TeamCard(team)
+                    items(filteredTeams, key = { it.id }) { team ->
+                        TeamCard(
+                            team = team,
+                            standing = standingsByTeamId[team.id],
+                            isStatsLoading = teamStatsLoading,
+                            statsError = teamStatsError,
+                            onRequestStats = { viewModel.loadTeamStandingsIfNeeded() }
+                        )
                     }
                 }
             }
         }
     }
-}
 
-@Composable
-private fun ConferenceHeader(title: String, color: Color, count: Int) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(4.dp, 24.dp)
-                .background(color, RoundedCornerShape(2.dp))
-        )
-        Spacer(Modifier.width(12.dp))
-        Text(
-            title,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = color
-        )
-        Spacer(Modifier.width(8.dp))
-        Surface(
-            shape = CircleShape,
-            color = color.copy(alpha = 0.15f),
-            modifier = Modifier.padding(start = 4.dp)
-        ) {
-            Text(
-                "$count",
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                color = color
-            )
+    LaunchedEffect(Unit) {
+        if (!isLoading && teams.isEmpty() && error == null) {
+            viewModel.loadTeams()
+        }
+    }
+
+    LaunchedEffect(selectedSort, teams) {
+        if (selectedSort != TeamSortOption.NAME && teams.isNotEmpty()) {
+            viewModel.loadTeamStandingsIfNeeded()
         }
     }
 }
 
 @Composable
-private fun TeamCard(team: Team) {
-    var expanded by remember { mutableStateOf(false) }
+private fun TeamCard(
+    team: Team,
+    standing: TeamStandingSummary?,
+    isStatsLoading: Boolean,
+    statsError: String?,
+    onRequestStats: () -> Unit
+) {
+    var expanded by remember(team.id) { mutableStateOf(false) }
+    val accentColor = if (team.conference == "East") {
+        Color(0xFF1D428A)
+    } else {
+        Color(0xFFC8102E)
+    }
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { expanded = !expanded },
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                // Team abbreviation badge
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(
-                            Brush.verticalGradient(
-                                listOf(
-                                    if (team.conference == "East") Color(0xFF1D428A) else Color(0xFFC8102E),
-                                    if (team.conference == "East") Color(0xFF1D428A).copy(alpha = 0.7f) else Color(0xFFC8102E).copy(alpha = 0.7f)
-                                )
-                            )
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        team.abbreviation,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 14.sp,
-                        color = Color.White
-                    )
+            .clickable {
+                expanded = !expanded
+                if (expanded && standing == null && !isStatsLoading) {
+                    onRequestStats()
                 }
+            },
+        shape = RoundedCornerShape(18.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TeamLogo(
+                    abbreviation = team.abbreviation,
+                    teamName = team.fullName,
+                    modifier = Modifier.size(56.dp),
+                    fallbackColor = accentColor
+                )
 
                 Spacer(Modifier.width(16.dp))
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         team.fullName,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        team.city,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        "${team.city} · ${team.division}",
+                        "${team.conference} · ${team.division}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
-                Icon(
-                    Icons.Default.Info,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                    modifier = Modifier.size(20.dp)
-                )
+                Surface(
+                    shape = CircleShape,
+                    color = accentColor.copy(alpha = 0.14f)
+                ) {
+                    Text(
+                        text = team.abbreviation,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = accentColor
+                    )
+                }
             }
 
             AnimatedVisibility(
@@ -228,12 +320,50 @@ private fun TeamCard(team: Team) {
                 enter = expandVertically(),
                 exit = shrinkVertically()
             ) {
-                Column(modifier = Modifier.padding(top = 12.dp)) {
+                Column(modifier = Modifier.padding(top = 14.dp)) {
                     HorizontalDivider(modifier = Modifier.padding(bottom = 12.dp))
-                    DetailRow("Conferencia", team.conference)
-                    DetailRow("División", team.division)
-                    DetailRow("Ciudad", team.city)
-                    DetailRow("Abreviatura", team.abbreviation)
+
+                    when {
+                        isStatsLoading && standing == null -> {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(22.dp),
+                                    strokeWidth = 2.dp,
+                                    color = accentColor
+                                )
+                            }
+                        }
+
+                        standing != null -> {
+                            DetailRow("Victorias", standing.wins.toString())
+                            DetailRow("Posicion en la liga", positionValue(standing.leagueRank))
+                            DetailRow("Puntos totales", standing.points.toString())
+                        }
+
+                        else -> {
+                            DetailRow(
+                                "Estado",
+                                statsError ?: "No se pudieron cargar las estadisticas"
+                            )
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        androidx.compose.material3.Icon(
+                            Icons.Default.Info,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
             }
         }
@@ -245,7 +375,7 @@ private fun DetailRow(label: String, value: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 2.dp),
+            .padding(vertical = 3.dp),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(
@@ -259,5 +389,22 @@ private fun DetailRow(label: String, value: String) {
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface
         )
+    }
+}
+
+private fun positionValue(rank: Int): String {
+    return if (rank > 0) "#$rank" else "--"
+}
+
+private fun teamComparator(
+    sortOption: TeamSortOption,
+    standingsByTeamId: Map<Int, TeamStandingSummary>
+): Comparator<Team> {
+    return when (sortOption) {
+        TeamSortOption.NAME -> compareBy { it.fullName }
+        TeamSortOption.POSITION -> compareBy<Team> { standingsByTeamId[it.id]?.leagueRank ?: Int.MAX_VALUE }
+            .thenBy { it.fullName }
+        TeamSortOption.POINTS -> compareByDescending<Team> { standingsByTeamId[it.id]?.points ?: Int.MIN_VALUE }
+            .thenBy { it.fullName }
     }
 }
