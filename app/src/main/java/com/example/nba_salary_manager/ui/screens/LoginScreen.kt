@@ -29,12 +29,12 @@ import com.example.nba_salary_manager.viewmodel.AuthViewModel
 
 @Composable
 fun LoginScreen(viewModel: AuthViewModel) {
-    var username by remember { mutableStateOf("") }
-    var phone by remember { mutableStateOf("") }
+    var nombreUsuario by remember { mutableStateOf("") }
+    var telefono by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var isSignUp by remember { mutableStateOf(false) }
-    val context = LocalContext.current
+    var contrasena by remember { mutableStateOf("") }
+    var esRegistro by remember { mutableStateOf(false) }
+    val contexto = LocalContext.current
 
     Column(
         modifier = Modifier
@@ -44,24 +44,24 @@ fun LoginScreen(viewModel: AuthViewModel) {
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = if (isSignUp) "Crear cuenta" else "Iniciar sesion",
+            text = if (esRegistro) "Crear cuenta" else "Iniciar sesión",
             style = MaterialTheme.typography.headlineMedium
         )
 
-        if (isSignUp) {
+        if (esRegistro) {
             Spacer(modifier = Modifier.height(16.dp))
             OutlinedTextField(
-                value = username,
-                onValueChange = { username = it },
+                value = nombreUsuario,
+                onValueChange = { nombreUsuario = it },
                 label = { Text("Nombre de usuario") },
                 modifier = Modifier.fillMaxWidth()
             )
 
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(
-                value = phone,
-                onValueChange = { phone = it },
-                label = { Text("Telefono") },
+                value = telefono,
+                onValueChange = { telefono = it },
+                label = { Text("Teléfono") },
                 modifier = Modifier.fillMaxWidth(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
             )
@@ -72,7 +72,7 @@ fun LoginScreen(viewModel: AuthViewModel) {
         OutlinedTextField(
             value = email,
             onValueChange = { email = it },
-            label = { Text("Email") },
+            label = { Text("Correo electrónico") },
             modifier = Modifier.fillMaxWidth(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
         )
@@ -80,9 +80,9 @@ fun LoginScreen(viewModel: AuthViewModel) {
         Spacer(modifier = Modifier.height(8.dp))
 
         OutlinedTextField(
-            value = password,
-            onValueChange = { password = it },
-            label = { Text("Contrasena") },
+            value = contrasena,
+            onValueChange = { contrasena = it },
+            label = { Text("Contraseña") },
             visualTransformation = PasswordVisualTransformation(),
             modifier = Modifier.fillMaxWidth(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
@@ -92,29 +92,29 @@ fun LoginScreen(viewModel: AuthViewModel) {
 
         Button(
             onClick = {
-                if (isSignUp) {
-                    viewModel.signUp(email, password, username, phone) { error ->
+                if (esRegistro) {
+                    viewModel.signUp(email, contrasena, nombreUsuario, telefono) { error ->
                         if (error != null) {
-                            Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
+                            Toast.makeText(contexto, error, Toast.LENGTH_SHORT).show()
                         }
                     }
                 } else {
-                    viewModel.signIn(email, password) { success ->
-                        if (!success) {
-                            Toast.makeText(context, "Error al iniciar sesion", Toast.LENGTH_SHORT).show()
+                    viewModel.signIn(email, contrasena) { inicioCorrecto ->
+                        if (!inicioCorrecto) {
+                            Toast.makeText(contexto, "No se pudo iniciar sesión", Toast.LENGTH_SHORT).show()
                         }
                     }
                 }
             },
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text(if (isSignUp) "Registrarse" else "Entrar")
+            Text(if (esRegistro) "Registrarse" else "Entrar")
         }
 
-        TextButton(onClick = { isSignUp = !isSignUp }) {
+        TextButton(onClick = { esRegistro = !esRegistro }) {
             Text(
-                if (isSignUp) "Ya tienes cuenta? Inicia sesion"
-                else "No tienes cuenta? Registrate"
+                if (esRegistro) "¿Ya tienes cuenta? Inicia sesión"
+                else "¿No tienes cuenta? Regístrate"
             )
         }
     }

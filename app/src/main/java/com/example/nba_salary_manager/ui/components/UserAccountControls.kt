@@ -73,7 +73,7 @@ fun UserAccessButton(
         ) {
             Icon(
                 imageVector = Icons.Default.Person,
-                contentDescription = "Iniciar sesion",
+                contentDescription = "Iniciar sesión",
                 tint = MaterialTheme.colorScheme.onPrimaryContainer
             )
         }
@@ -103,12 +103,12 @@ fun AuthDialog(
     onDismiss: () -> Unit,
     onAuthenticated: () -> Unit
 ) {
-    var isSignUp by rememberSaveable { mutableStateOf(false) }
-    var username by rememberSaveable { mutableStateOf("") }
-    var phone by rememberSaveable { mutableStateOf("") }
+    var esRegistro by rememberSaveable { mutableStateOf(false) }
+    var nombreUsuario by rememberSaveable { mutableStateOf("") }
+    var telefono by rememberSaveable { mutableStateOf("") }
     var email by rememberSaveable { mutableStateOf("") }
-    var password by rememberSaveable { mutableStateOf("") }
-    val context = LocalContext.current
+    var contrasena by rememberSaveable { mutableStateOf("") }
+    val contexto = LocalContext.current
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -127,14 +127,14 @@ fun AuthDialog(
                     .padding(24.dp)
             ) {
                 Text(
-                    text = if (isSignUp) "Crear cuenta" else "Iniciar sesion",
+                    text = if (esRegistro) "Crear cuenta" else "Iniciar sesión",
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = if (isSignUp) {
-                        "Completa tu registro con nombre de usuario, telefono y correo."
+                    text = if (esRegistro) {
+                        "Completa el registro con tu nombre de usuario, tu teléfono y tu correo."
                     } else {
                         "Accede a tu cuenta sin salir de la pantalla principal."
                     },
@@ -142,11 +142,11 @@ fun AuthDialog(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                if (isSignUp) {
+                if (esRegistro) {
                     Spacer(modifier = Modifier.height(20.dp))
                     OutlinedTextField(
-                        value = username,
-                        onValueChange = { username = it },
+                        value = nombreUsuario,
+                        onValueChange = { nombreUsuario = it },
                         label = { Text("Nombre de usuario") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
@@ -154,9 +154,9 @@ fun AuthDialog(
 
                     Spacer(modifier = Modifier.height(12.dp))
                     OutlinedTextField(
-                        value = phone,
-                        onValueChange = { phone = it },
-                        label = { Text("Telefono") },
+                        value = telefono,
+                        onValueChange = { telefono = it },
+                        label = { Text("Teléfono") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
@@ -167,7 +167,7 @@ fun AuthDialog(
                 OutlinedTextField(
                     value = email,
                     onValueChange = { email = it },
-                    label = { Text("Email") },
+                    label = { Text("Correo electrónico") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
@@ -175,9 +175,9 @@ fun AuthDialog(
 
                 Spacer(modifier = Modifier.height(12.dp))
                 OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    label = { Text("Contrasena") },
+                    value = contrasena,
+                    onValueChange = { contrasena = it },
+                    label = { Text("Contraseña") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
@@ -187,24 +187,24 @@ fun AuthDialog(
                 Spacer(modifier = Modifier.height(20.dp))
                 Button(
                     onClick = {
-                        if (isSignUp) {
-                            viewModel.signUp(email, password, username, phone) { error ->
+                        if (esRegistro) {
+                            viewModel.signUp(email, contrasena, nombreUsuario, telefono) { error ->
                                 if (error == null) {
-                                    Toast.makeText(context, "Cuenta creada", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(contexto, "Cuenta creada correctamente", Toast.LENGTH_SHORT).show()
                                     onAuthenticated()
                                 } else {
-                                    Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(contexto, error, Toast.LENGTH_SHORT).show()
                                 }
                             }
                         } else {
-                            viewModel.signIn(email, password) { success ->
-                                if (success) {
-                                    Toast.makeText(context, "Sesion iniciada", Toast.LENGTH_SHORT).show()
+                            viewModel.signIn(email, contrasena) { inicioCorrecto ->
+                                if (inicioCorrecto) {
+                                    Toast.makeText(contexto, "Sesión iniciada correctamente", Toast.LENGTH_SHORT).show()
                                     onAuthenticated()
                                 } else {
                                     Toast.makeText(
-                                        context,
-                                        "No se pudo iniciar sesion",
+                                        contexto,
+                                        "No se pudo iniciar sesión",
                                         Toast.LENGTH_SHORT
                                     ).show()
                                 }
@@ -213,7 +213,7 @@ fun AuthDialog(
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(if (isSignUp) "Crear cuenta" else "Entrar")
+                    Text(if (esRegistro) "Crear cuenta" else "Entrar")
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -222,12 +222,12 @@ fun AuthDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    TextButton(onClick = { isSignUp = !isSignUp }) {
+                    TextButton(onClick = { esRegistro = !esRegistro }) {
                         Text(
-                            if (isSignUp) {
-                                "Ya tengo cuenta"
+                            if (esRegistro) {
+                                "Ya tengo una cuenta"
                             } else {
-                                "Crear una cuenta"
+                                "Crear una cuenta nueva"
                             }
                         )
                     }
@@ -247,13 +247,13 @@ fun UserSettingsSheet(
     viewModel: AuthViewModel,
     onDismiss: () -> Unit
 ) {
-    val context = LocalContext.current
-    val savedPhone by viewModel.currentPhone
-    var username by rememberSaveable(user.uid, user.displayName) {
+    val contexto = LocalContext.current
+    val telefonoGuardado by viewModel.currentPhone
+    var nombreUsuario by rememberSaveable(user.uid, user.displayName) {
         mutableStateOf(user.displayName.orEmpty())
     }
-    var phone by rememberSaveable(user.uid, savedPhone) {
-        mutableStateOf(savedPhone.orEmpty())
+    var telefono by rememberSaveable(user.uid, telefonoGuardado) {
+        mutableStateOf(telefonoGuardado.orEmpty())
     }
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
@@ -319,17 +319,17 @@ fun UserSettingsSheet(
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     OutlinedTextField(
-                        value = username,
-                        onValueChange = { username = it },
+                        value = nombreUsuario,
+                        onValueChange = { nombreUsuario = it },
                         label = { Text("Nombre de usuario") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     OutlinedTextField(
-                        value = phone,
-                        onValueChange = { phone = it },
-                        label = { Text("Telefono") },
+                        value = telefono,
+                        onValueChange = { telefono = it },
+                        label = { Text("Teléfono") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
@@ -341,20 +341,20 @@ fun UserSettingsSheet(
                     ) {
                         Button(
                             onClick = {
-                                viewModel.updateDisplayName(username) { nameError ->
-                                    if (nameError != null) {
-                                        Toast.makeText(context, nameError, Toast.LENGTH_SHORT).show()
+                                viewModel.updateDisplayName(nombreUsuario) { errorNombre ->
+                                    if (errorNombre != null) {
+                                        Toast.makeText(contexto, errorNombre, Toast.LENGTH_SHORT).show()
                                         return@updateDisplayName
                                     }
-                                    viewModel.updatePhone(phone) { phoneError ->
-                                        if (phoneError == null) {
+                                    viewModel.updatePhone(telefono) { errorTelefono ->
+                                        if (errorTelefono == null) {
                                             Toast.makeText(
-                                                context,
-                                                "Perfil actualizado",
+                                                contexto,
+                                                "Perfil actualizado correctamente",
                                                 Toast.LENGTH_SHORT
                                             ).show()
                                         } else {
-                                            Toast.makeText(context, phoneError, Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(contexto, errorTelefono, Toast.LENGTH_SHORT).show()
                                         }
                                     }
                                 }
@@ -369,12 +369,12 @@ fun UserSettingsSheet(
                                 viewModel.reloadUser { error ->
                                     if (error == null) {
                                         Toast.makeText(
-                                            context,
-                                            "Datos actualizados",
+                                            contexto,
+                                            "Datos actualizados correctamente",
                                             Toast.LENGTH_SHORT
                                         ).show()
                                     } else {
-                                        Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(contexto, error, Toast.LENGTH_SHORT).show()
                                     }
                                 }
                             },
@@ -402,7 +402,7 @@ fun UserSettingsSheet(
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     AccountInfoRow("Nombre de usuario", user.displayName ?: "No disponible")
-                    AccountInfoRow("Telefono", savedPhone ?: "No disponible")
+                    AccountInfoRow("Teléfono", telefonoGuardado ?: "No disponible")
                     AccountInfoRow("Correo", user.email ?: "No disponible")
 
                     Spacer(modifier = Modifier.height(12.dp))
@@ -411,18 +411,18 @@ fun UserSettingsSheet(
                             viewModel.sendPasswordReset { error ->
                                 if (error == null) {
                                     Toast.makeText(
-                                        context,
-                                        "Correo de cambio de contrasena enviado",
+                                        contexto,
+                                        "Se ha enviado el correo para cambiar la contraseña",
                                         Toast.LENGTH_SHORT
                                     ).show()
                                 } else {
-                                    Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(contexto, error, Toast.LENGTH_SHORT).show()
                                 }
                             }
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Cambiar contrasena")
+                        Text("Cambiar contraseña")
                     }
                 }
             }
@@ -439,7 +439,7 @@ fun UserSettingsSheet(
                     containerColor = MaterialTheme.colorScheme.error
                 )
             ) {
-                Text("Cerrar sesion")
+                Text("Cerrar sesión")
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -484,11 +484,11 @@ private fun accountInitials(user: FirebaseUser): String {
 
 private fun providerLabel(providerId: String): String {
     return when (providerId) {
-        "password" -> "Email y contrasena"
+        "password" -> "Correo y contraseña"
         "google.com" -> "Google"
         "facebook.com" -> "Facebook"
         "github.com" -> "GitHub"
-        "phone" -> "Telefono"
+        "phone" -> "Teléfono"
         else -> providerId
     }
 }

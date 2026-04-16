@@ -9,167 +9,167 @@ import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.UserProfileChangeRequest
 
 class AuthViewModel(context: Context) : ViewModel() {
-    private val auth: FirebaseAuth = FirebaseAuth.getInstance()
-    private val prefs = context.applicationContext.getSharedPreferences(
+    private val autenticacion: FirebaseAuth = FirebaseAuth.getInstance()
+    private val preferencias = context.applicationContext.getSharedPreferences(
         USER_PROFILE_PREFS,
         Context.MODE_PRIVATE
     )
 
-    val currentUser: MutableState<FirebaseUser?> = mutableStateOf(auth.currentUser)
-    val currentPhone: MutableState<String?> = mutableStateOf(loadPhone(auth.currentUser?.uid))
+    val currentUser: MutableState<FirebaseUser?> = mutableStateOf(autenticacion.currentUser)
+    val currentPhone: MutableState<String?> = mutableStateOf(cargarTelefono(autenticacion.currentUser?.uid))
 
-    fun signIn(email: String, pass: String, onResult: (Boolean) -> Unit) {
-        if (email.isBlank() || pass.isBlank()) {
+    fun signIn(email: String, contrasena: String, onResult: (Boolean) -> Unit) {
+        if (email.isBlank() || contrasena.isBlank()) {
             onResult(false)
             return
         }
 
-        auth.signInWithEmailAndPassword(email, pass)
-            .addOnCompleteListener { task ->
-                currentUser.value = auth.currentUser
-                currentPhone.value = loadPhone(auth.currentUser?.uid)
-                onResult(task.isSuccessful)
+        autenticacion.signInWithEmailAndPassword(email, contrasena)
+            .addOnCompleteListener { tarea ->
+                currentUser.value = autenticacion.currentUser
+                currentPhone.value = cargarTelefono(autenticacion.currentUser?.uid)
+                onResult(tarea.isSuccessful)
             }
     }
 
     fun signUp(
         email: String,
-        pass: String,
-        username: String,
-        phone: String,
+        contrasena: String,
+        nombreUsuario: String,
+        telefono: String,
         onResult: (String?) -> Unit
     ) {
-        if (username.isBlank()) {
-            onResult("El nombre de usuario no puede estar vacio")
+        if (nombreUsuario.isBlank()) {
+            onResult("El nombre de usuario no puede estar vacío")
             return
         }
-        if (phone.isBlank()) {
-            onResult("El telefono no puede estar vacio")
+        if (telefono.isBlank()) {
+            onResult("El teléfono no puede estar vacío")
             return
         }
-        if (email.isBlank() || pass.isBlank()) {
-            onResult("El email y la contrasena no pueden estar vacios")
+        if (email.isBlank() || contrasena.isBlank()) {
+            onResult("El correo y la contraseña no pueden estar vacíos")
             return
         }
-        if (pass.length < 6) {
-            onResult("La contrasena debe tener al menos 6 caracteres")
+        if (contrasena.length < 6) {
+            onResult("La contraseña debe tener al menos 6 caracteres")
             return
         }
 
-        auth.createUserWithEmailAndPassword(email, pass)
-            .addOnCompleteListener { task ->
-                val createdUser = auth.currentUser
-                if (!task.isSuccessful || createdUser == null) {
-                    currentUser.value = createdUser
-                    currentPhone.value = loadPhone(createdUser?.uid)
-                    onResult(task.exception?.message)
+        autenticacion.createUserWithEmailAndPassword(email, contrasena)
+            .addOnCompleteListener { tarea ->
+                val usuarioCreado = autenticacion.currentUser
+                if (!tarea.isSuccessful || usuarioCreado == null) {
+                    currentUser.value = usuarioCreado
+                    currentPhone.value = cargarTelefono(usuarioCreado?.uid)
+                    onResult(tarea.exception?.message)
                     return@addOnCompleteListener
                 }
 
-                val updateRequest = UserProfileChangeRequest.Builder()
-                    .setDisplayName(username.trim())
+                val solicitudActualizacion = UserProfileChangeRequest.Builder()
+                    .setDisplayName(nombreUsuario.trim())
                     .build()
 
-                createdUser.updateProfile(updateRequest)
-                    .addOnCompleteListener { updateTask ->
-                        savePhone(createdUser.uid, phone)
-                        currentUser.value = auth.currentUser
-                        currentPhone.value = loadPhone(createdUser.uid)
-                        if (updateTask.isSuccessful) {
+                usuarioCreado.updateProfile(solicitudActualizacion)
+                    .addOnCompleteListener { tareaActualizacion ->
+                        guardarTelefono(usuarioCreado.uid, telefono)
+                        currentUser.value = autenticacion.currentUser
+                        currentPhone.value = cargarTelefono(usuarioCreado.uid)
+                        if (tareaActualizacion.isSuccessful) {
                             onResult(null)
                         } else {
-                            onResult(updateTask.exception?.message)
+                            onResult(tareaActualizacion.exception?.message)
                         }
                     }
             }
     }
 
     fun updateDisplayName(displayName: String, onResult: (String?) -> Unit) {
-        val user = auth.currentUser
-        if (user == null) {
-            onResult("No hay ninguna sesion iniciada")
+        val usuario = autenticacion.currentUser
+        if (usuario == null) {
+            onResult("No hay ninguna sesión iniciada")
             return
         }
         if (displayName.isBlank()) {
-            onResult("El nombre de usuario no puede estar vacio")
+            onResult("El nombre de usuario no puede estar vacío")
             return
         }
 
-        val updateRequest = UserProfileChangeRequest.Builder()
+        val solicitudActualizacion = UserProfileChangeRequest.Builder()
             .setDisplayName(displayName.trim())
             .build()
 
-        user.updateProfile(updateRequest)
-            .addOnCompleteListener { task ->
-                currentUser.value = auth.currentUser
-                if (task.isSuccessful) onResult(null) else onResult(task.exception?.message)
+        usuario.updateProfile(solicitudActualizacion)
+            .addOnCompleteListener { tarea ->
+                currentUser.value = autenticacion.currentUser
+                if (tarea.isSuccessful) onResult(null) else onResult(tarea.exception?.message)
             }
     }
 
     fun updatePhone(phone: String, onResult: (String?) -> Unit) {
-        val user = auth.currentUser
-        if (user == null) {
-            onResult("No hay ninguna sesion iniciada")
+        val usuario = autenticacion.currentUser
+        if (usuario == null) {
+            onResult("No hay ninguna sesión iniciada")
             return
         }
         if (phone.isBlank()) {
-            onResult("El telefono no puede estar vacio")
+            onResult("El teléfono no puede estar vacío")
             return
         }
 
-        savePhone(user.uid, phone)
-        currentPhone.value = loadPhone(user.uid)
+        guardarTelefono(usuario.uid, phone)
+        currentPhone.value = cargarTelefono(usuario.uid)
         onResult(null)
     }
 
     fun sendPasswordReset(onResult: (String?) -> Unit) {
-        val email = auth.currentUser?.email
+        val email = autenticacion.currentUser?.email
         if (email.isNullOrBlank()) {
             onResult("La cuenta no tiene un correo disponible")
             return
         }
 
-        auth.sendPasswordResetEmail(email)
-            .addOnCompleteListener { task ->
-                if (task.isSuccessful) onResult(null) else onResult(task.exception?.message)
+        autenticacion.sendPasswordResetEmail(email)
+            .addOnCompleteListener { tarea ->
+                if (tarea.isSuccessful) onResult(null) else onResult(tarea.exception?.message)
             }
     }
 
     fun reloadUser(onResult: (String?) -> Unit = {}) {
-        val user = auth.currentUser
-        if (user == null) {
+        val usuario = autenticacion.currentUser
+        if (usuario == null) {
             currentUser.value = null
             currentPhone.value = null
-            onResult("No hay ninguna sesion iniciada")
+            onResult("No hay ninguna sesión iniciada")
             return
         }
 
-        user.reload()
-            .addOnCompleteListener { task ->
-                currentUser.value = auth.currentUser
-                currentPhone.value = loadPhone(auth.currentUser?.uid)
-                if (task.isSuccessful) onResult(null) else onResult(task.exception?.message)
+        usuario.reload()
+            .addOnCompleteListener { tarea ->
+                currentUser.value = autenticacion.currentUser
+                currentPhone.value = cargarTelefono(autenticacion.currentUser?.uid)
+                if (tarea.isSuccessful) onResult(null) else onResult(tarea.exception?.message)
             }
     }
 
     fun signOut() {
-        auth.signOut()
+        autenticacion.signOut()
         currentUser.value = null
         currentPhone.value = null
     }
 
-    private fun loadPhone(uid: String?): String? {
+    private fun cargarTelefono(uid: String?): String? {
         if (uid.isNullOrBlank()) return null
-        return prefs.getString(phoneKey(uid), null)
+        return preferencias.getString(claveTelefono(uid), null)
     }
 
-    private fun savePhone(uid: String, phone: String) {
-        prefs.edit()
-            .putString(phoneKey(uid), phone.trim())
+    private fun guardarTelefono(uid: String, phone: String) {
+        preferencias.edit()
+            .putString(claveTelefono(uid), phone.trim())
             .apply()
     }
 
-    private fun phoneKey(uid: String): String = "phone_$uid"
+    private fun claveTelefono(uid: String): String = "phone_$uid"
 
     private companion object {
         const val USER_PROFILE_PREFS = "user_profile_prefs"

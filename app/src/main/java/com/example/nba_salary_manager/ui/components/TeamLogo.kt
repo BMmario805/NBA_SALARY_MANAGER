@@ -24,31 +24,31 @@ import coil.request.ImageRequest
 
 @Composable
 fun TeamLogo(
-    abbreviation: String,
-    teamName: String,
+    abreviatura: String,
+    nombreEquipo: String,
     modifier: Modifier = Modifier,
-    fallbackColor: Color
+    colorRespaldo: Color
 ) {
-    val logoCandidates = remember(abbreviation) { buildLogoCandidates(abbreviation) }
-    var candidateIndex by remember(abbreviation) { mutableStateOf(0) }
-    var imageFailed by remember(abbreviation, candidateIndex) { mutableStateOf(false) }
-    val logoUrl = logoCandidates.getOrNull(candidateIndex)
+    val candidatosLogo = remember(abreviatura) { construirCandidatosLogo(abreviatura) }
+    var indiceCandidato by remember(abreviatura) { mutableStateOf(0) }
+    var falloImagen by remember(abreviatura, indiceCandidato) { mutableStateOf(false) }
+    val urlLogo = candidatosLogo.getOrNull(indiceCandidato)
 
-    if (!logoUrl.isNullOrBlank() && !imageFailed) {
+    if (!urlLogo.isNullOrBlank() && !falloImagen) {
         AsyncImage(
             model = ImageRequest.Builder(LocalContext.current)
-                .data(logoUrl)
+                .data(urlLogo)
                 .crossfade(true)
                 .build(),
-            contentDescription = "Logo $teamName",
+            contentDescription = "Logo de $nombreEquipo",
             modifier = modifier.clip(RoundedCornerShape(12.dp)),
             contentScale = ContentScale.Fit,
             onError = {
-                if (candidateIndex < logoCandidates.lastIndex) {
-                    candidateIndex += 1
-                    imageFailed = false
+                if (indiceCandidato < candidatosLogo.lastIndex) {
+                    indiceCandidato += 1
+                    falloImagen = false
                 } else {
-                    imageFailed = true
+                    falloImagen = true
                 }
             }
         )
@@ -59,15 +59,15 @@ fun TeamLogo(
                 .background(
                     Brush.verticalGradient(
                         listOf(
-                            fallbackColor,
-                            fallbackColor.copy(alpha = 0.72f)
+                            colorRespaldo,
+                            colorRespaldo.copy(alpha = 0.72f)
                         )
                     )
                 ),
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = abbreviation,
+                text = abreviatura,
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.ExtraBold,
                 color = Color.White
@@ -76,21 +76,22 @@ fun TeamLogo(
     }
 }
 
-private fun buildLogoCandidates(abbreviation: String): List<String> {
-    val normalized = abbreviation.uppercase()
-    val nbaTeamId = NBA_TEAM_IDS_BY_ABBR[normalized] ?: return emptyList()
-    val espnCode = ESPN_TEAM_CODES_BY_ABBR[normalized] ?: normalized.lowercase()
+private fun construirCandidatosLogo(abreviatura: String): List<String> {
+    val abreviaturaNormalizada = abreviatura.uppercase()
+    val idEquipoNba = IDS_EQUIPOS_NBA_POR_ABREVIATURA[abreviaturaNormalizada] ?: return emptyList()
+    val codigoEspn = CODIGOS_EQUIPOS_ESPN_POR_ABREVIATURA[abreviaturaNormalizada]
+        ?: abreviaturaNormalizada.lowercase()
 
     return listOf(
-        "https://cdn.nba.com/logos/nba/$nbaTeamId/global/L/logo.png",
-        "https://cdn.nba.com/logos/nba/$nbaTeamId/primary/L/logo.png",
-        "https://cdn.nba.com/logos/nba/$nbaTeamId/global/D/logo.png",
-        "https://cdn.nba.com/logos/nba/$nbaTeamId/primary/D/logo.png",
-        "https://a.espncdn.com/i/teamlogos/nba/500/$espnCode.png"
+        "https://cdn.nba.com/logos/nba/$idEquipoNba/global/L/logo.png",
+        "https://cdn.nba.com/logos/nba/$idEquipoNba/primary/L/logo.png",
+        "https://cdn.nba.com/logos/nba/$idEquipoNba/global/D/logo.png",
+        "https://cdn.nba.com/logos/nba/$idEquipoNba/primary/D/logo.png",
+        "https://a.espncdn.com/i/teamlogos/nba/500/$codigoEspn.png"
     )
 }
 
-private val NBA_TEAM_IDS_BY_ABBR = mapOf(
+private val IDS_EQUIPOS_NBA_POR_ABREVIATURA = mapOf(
     "ATL" to 1610612737,
     "BOS" to 1610612738,
     "BKN" to 1610612751,
@@ -123,7 +124,7 @@ private val NBA_TEAM_IDS_BY_ABBR = mapOf(
     "WAS" to 1610612764
 )
 
-private val ESPN_TEAM_CODES_BY_ABBR = mapOf(
+private val CODIGOS_EQUIPOS_ESPN_POR_ABREVIATURA = mapOf(
     "GSW" to "gs",
     "NYK" to "ny",
     "NOP" to "no",

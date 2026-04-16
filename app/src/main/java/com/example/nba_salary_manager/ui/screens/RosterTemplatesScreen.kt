@@ -85,43 +85,44 @@ private val CourtWood = Color(0xFFC78040)
 private val CourtWoodDark = Color(0xFFB96D33)
 private val CourtPanel = Color(0xFF111A2D)
 
+// Pantalla de plantillas: mezcla galeria, editor visual en cancha y comparativa de reemplazos.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RosterTemplatesScreen(viewModel: NbaViewModel, modifier: Modifier = Modifier) {
-    val activeTemplate = viewModel.activeRosterTemplate
-    val selectedCategory = viewModel.selectedRosterCategory
-    val templates = viewModel.filteredRosterTemplates
-    val editablePlayers = viewModel.editableRosterPlayers
-    val courtAssignments = remember(editablePlayers) { buildCourtAssignments(editablePlayers) }
-    val rosterStatsEntries = remember(editablePlayers, viewModel.playerStatsStates) {
-        editablePlayers.map { player -> player to viewModel.rosterPlayerStatsState(player) }
+    val plantillaActiva = viewModel.plantillaActiva
+    val categoriaSeleccionada = viewModel.categoriaPlantillaSeleccionada
+    val plantillas = viewModel.plantillasFiltradas
+    val jugadoresEditables = viewModel.jugadoresPlantillaEditable
+    val asignacionesCancha = remember(jugadoresEditables) { buildCourtAssignments(jugadoresEditables) }
+    val entradasEstadisticasPlantilla = remember(jugadoresEditables, viewModel.estadosEstadisticasJugadores) {
+        jugadoresEditables.map { jugador -> jugador to viewModel.estadoEstadisticasJugadorPlantilla(jugador) }
     }
-    val rosterLoadedStats = remember(rosterStatsEntries) {
-        rosterStatsEntries.mapNotNull { (_, state) -> state.summary }
+    val estadisticasCargadasPlantilla = remember(entradasEstadisticasPlantilla) {
+        entradasEstadisticasPlantilla.mapNotNull { (_, estado) -> estado.summary }
     }
-    val replacementCandidates = viewModel.replacementCandidates
-    val replacementCandidatesLoading = viewModel.replacementCandidatesLoading
-    val replacementCandidatesError = viewModel.replacementCandidatesError
-    val replacementTargetStats = viewModel.replacementTargetStats
-    val replacementTargetPosition = viewModel.replacementTargetPosition
+    val candidatosReemplazo = viewModel.candidatosReemplazo
+    val cargandoCandidatosReemplazo = viewModel.cargandoCandidatosReemplazo
+    val errorCandidatosReemplazo = viewModel.errorCandidatosReemplazo
+    val estadisticasObjetivoReemplazo = viewModel.estadisticasObjetivoReemplazo
+    val posicionObjetivoReemplazo = viewModel.posicionObjetivoReemplazo
 
-    var selectedPlayerIndex by rememberSaveable { mutableStateOf(0) }
-    var showTemplatePicker by rememberSaveable { mutableStateOf(false) }
-    var showReplacementSheet by rememberSaveable { mutableStateOf(false) }
+    var indiceJugadorSeleccionado by rememberSaveable { mutableStateOf(0) }
+    var mostrarSelectorPlantillas by rememberSaveable { mutableStateOf(false) }
+    var mostrarHojaReemplazos by rememberSaveable { mutableStateOf(false) }
 
-    LaunchedEffect(editablePlayers.size) {
-        selectedPlayerIndex = when {
-            editablePlayers.isEmpty() -> -1
-            selectedPlayerIndex !in editablePlayers.indices -> 0
-            else -> selectedPlayerIndex
+    LaunchedEffect(jugadoresEditables.size) {
+        indiceJugadorSeleccionado = when {
+            jugadoresEditables.isEmpty() -> -1
+            indiceJugadorSeleccionado !in jugadoresEditables.indices -> 0
+            else -> indiceJugadorSeleccionado
         }
     }
 
-    LaunchedEffect(editablePlayers.map { "${it.nbaPlayerId}-${it.name}" }) {
-        viewModel.loadEditableRosterStats()
+    LaunchedEffect(jugadoresEditables.map { "${it.nbaPlayerId}-${it.name}" }) {
+        viewModel.cargarEstadisticasPlantillaEditable()
     }
 
-    val selectedPlayer = editablePlayers.getOrNull(selectedPlayerIndex)
+    val jugadorSeleccionado = jugadoresEditables.getOrNull(indiceJugadorSeleccionado)
 
     LazyColumn(
         modifier = modifier
@@ -132,83 +133,84 @@ fun RosterTemplatesScreen(viewModel: NbaViewModel, modifier: Modifier = Modifier
     ) {
         item {
             ActiveRosterCard(
-                activeTemplate = activeTemplate,
-                playerCount = courtAssignments.count { it.player != null },
-                onChangeTemplate = { showTemplatePicker = true }
+                activeTemplate = plantillaActiva,
+                playerCount = asignacionesCancha.count { it.player != null },
+                onChangeTemplate = { mostrarSelectorPlantillas = true }
             )
         }
 
         item {
             CourtEditorCard(
-                assignments = courtAssignments,
-                selectedPlayerIndex = selectedPlayerIndex,
-                onSelectPlayer = { selectedPlayerIndex = it }
+                assignments = asignacionesCancha,
+                selectedPlayerIndex = indiceJugadorSeleccionado,
+                onSelectPlayer = { indiceJugadorSeleccionado = it }
             )
         }
 
         item {
             RosterStatsOverviewCard(
-                totalPlayers = editablePlayers.size,
-                loadedPlayers = rosterLoadedStats.size,
-                isLoading = rosterStatsEntries.any { (_, state) -> state.isLoading } && rosterLoadedStats.isEmpty(),
-                averageStats = rosterLoadedStats.toAverageSummaryOrNull()
+                totalPlayers = jugadoresEditables.size,
+                loadedPlayers = estadisticasCargadasPlantilla.size,
+                isLoading = entradasEstadisticasPlantilla.any { (_, estado) -> estado.isLoading } && estadisticasCargadasPlantilla.isEmpty(),
+                averageStats = estadisticasCargadasPlantilla.toAverageSummaryOrNull()
             )
         }
 
         item {
             SelectedPlayerCard(
-                player = selectedPlayer,
-                playerStatsState = selectedPlayer?.let(viewModel::rosterPlayerStatsState),
+                player = jugadorSeleccionado,
+                estadoEstadisticasJugador = jugadorSeleccionado?.let(viewModel::estadoEstadisticasJugadorPlantilla),
                 onRetryStats = {
-                    selectedPlayer?.let { player -> viewModel.loadRosterPlayerStats(player, forceRefresh = true) }
+                    jugadorSeleccionado?.let { jugador -> viewModel.cargarEstadisticasJugadorPlantilla(jugador, forzarRecarga = true) }
                 },
                 onShowReplacements = {
-                    selectedPlayer?.let {
-                        showReplacementSheet = true
-                        viewModel.loadReplacementCandidates(it)
+                    jugadorSeleccionado?.let {
+                        mostrarHojaReemplazos = true
+                        viewModel.cargarCandidatosReemplazo(it)
                     }
                 }
             )
         }
     }
 
-    if (showTemplatePicker) {
+    if (mostrarSelectorPlantillas) {
         TemplatePickerSheet(
-            selectedCategory = selectedCategory,
-            templates = templates,
-            activeTemplateId = activeTemplate?.id,
-            onCategoryChange = viewModel::updateRosterCategory,
+            selectedCategory = categoriaSeleccionada,
+            templates = plantillas,
+            activeTemplateId = plantillaActiva?.id,
+            onCategoryChange = viewModel::actualizarCategoriaPlantilla,
             onSelectTemplate = { template ->
-                viewModel.useRosterTemplate(template.id)
-                selectedPlayerIndex = 0
-                showTemplatePicker = false
+                viewModel.usarPlantillaBase(template.id)
+                indiceJugadorSeleccionado = 0
+                mostrarSelectorPlantillas = false
             },
-            onDismiss = { showTemplatePicker = false }
+            onDismiss = { mostrarSelectorPlantillas = false }
         )
     }
 
-    if (showReplacementSheet && selectedPlayer != null && selectedPlayerIndex in editablePlayers.indices) {
+    if (mostrarHojaReemplazos && jugadorSeleccionado != null && indiceJugadorSeleccionado in jugadoresEditables.indices) {
         ReplacementCandidatesSheet(
-            targetPlayer = selectedPlayer,
-            targetStats = replacementTargetStats,
-            lockedPosition = replacementTargetPosition.ifBlank { selectedPlayer.position },
-            candidates = replacementCandidates,
-            isLoading = replacementCandidatesLoading,
-            error = replacementCandidatesError,
+            targetPlayer = jugadorSeleccionado,
+            targetStats = estadisticasObjetivoReemplazo,
+            lockedPosition = posicionObjetivoReemplazo.ifBlank { jugadorSeleccionado.position },
+            candidates = candidatosReemplazo,
+            isLoading = cargandoCandidatosReemplazo,
+            error = errorCandidatosReemplazo,
             onReplace = { player ->
-                viewModel.replaceEditableRosterPlayer(selectedPlayerIndex, player)
-                showReplacementSheet = false
-                viewModel.clearReplacementCandidates()
+                viewModel.reemplazarJugadorPlantillaEditable(indiceJugadorSeleccionado, player)
+                mostrarHojaReemplazos = false
+                viewModel.limpiarCandidatosReemplazo()
             },
-            onRetry = { viewModel.loadReplacementCandidates(selectedPlayer) },
+            onRetry = { viewModel.cargarCandidatosReemplazo(jugadorSeleccionado) },
             onDismiss = {
-                showReplacementSheet = false
-                viewModel.clearReplacementCandidates()
+                mostrarHojaReemplazos = false
+                viewModel.limpiarCandidatosReemplazo()
             }
         )
     }
 }
 
+// Tarjeta resumen de la plantilla activa y su idea principal de juego.
 @Composable
 private fun ActiveRosterCard(
     activeTemplate: RosterTemplate?,
@@ -287,6 +289,7 @@ private fun InfoPill(label: String, background: Color) {
     }
 }
 
+// Tarjeta agregada con medias de la plantilla para comparar el quinteto de un vistazo.
 @Composable
 private fun RosterStatsOverviewCard(
     totalPlayers: Int,
@@ -313,7 +316,7 @@ private fun RosterStatsOverviewCard(
 
             Text(
                 text = if (loadedPlayers == 0) {
-                    "Cargando estadisticas de la plantilla..."
+                    "Cargando estadísticas de la plantilla..."
                 } else {
                     "Comparativa agregada con $loadedPlayers de $totalPlayers jugadores con datos."
                 },
@@ -351,7 +354,7 @@ private fun RosterStatsOverviewCard(
 
                 else -> {
                     Text(
-                        text = "No hay estadisticas disponibles todavia para esta plantilla.",
+                        text = "No hay estadísticas disponibles todavía para esta plantilla.",
                         color = MutedInk
                     )
                 }
@@ -360,6 +363,7 @@ private fun RosterStatsOverviewCard(
     }
 }
 
+// Editor visual que coloca a cada jugador en una zona aproximada de la pista.
 @Composable
 private fun CourtEditorCard(
     assignments: List<CourtAssignment>,
@@ -383,7 +387,7 @@ private fun CourtEditorCard(
                 color = Color.White
             )
             Text(
-                text = "Selecciona una plaza para ver reemplazos de la misma posicion.",
+                text = "Selecciona una plaza para ver reemplazos de la misma posición.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color.White.copy(alpha = 0.74f)
             )
@@ -426,6 +430,7 @@ private fun CourtEditorCard(
     }
 }
 
+// Dibuja una media pista estilizada que sirve solo como base visual del editor.
 @Composable
 private fun CourtCanvas() {
     Canvas(modifier = Modifier.fillMaxSize()) {
@@ -504,6 +509,7 @@ private fun CourtCanvas() {
     }
 }
 
+// Nodo interactivo de un jugador dentro de la pista.
 @Composable
 private fun CourtPlayerNode(
     assignment: CourtAssignment,
@@ -538,10 +544,10 @@ private fun CourtPlayerNode(
         }
 
         PlayerAvatar(
-            playerName = player?.name ?: assignment.slot.label,
-            nbaPlayerId = player?.nbaPlayerId,
+            nombreJugador = player?.name ?: assignment.slot.label,
+            idJugadorNba = player?.nbaPlayerId,
             modifier = Modifier.size(42.dp),
-            fallbackColor = Emerald
+            colorRespaldo = Emerald
         )
 
         Text(
@@ -566,10 +572,11 @@ private fun CourtPlayerNode(
     }
 }
 
+// Panel lateral con el jugador seleccionado, su nota y acceso a reemplazos.
 @Composable
 private fun SelectedPlayerCard(
     player: RosterPlayerTemplate?,
-    playerStatsState: com.example.nba_salary_manager.data.model.PlayerStatsUiState?,
+    estadoEstadisticasJugador: com.example.nba_salary_manager.data.model.PlayerStatsUiState?,
     onRetryStats: () -> Unit,
     onShowReplacements: () -> Unit
 ) {
@@ -609,10 +616,10 @@ private fun SelectedPlayerCard(
                     horizontalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
                     PlayerAvatar(
-                        playerName = player.name,
-                        nbaPlayerId = player.nbaPlayerId,
+                        nombreJugador = player.name,
+                        idJugadorNba = player.nbaPlayerId,
                         modifier = Modifier.size(62.dp),
-                        fallbackColor = Emerald
+                        colorRespaldo = Emerald
                     )
 
                     Column(modifier = Modifier.weight(1f)) {
@@ -623,13 +630,13 @@ private fun SelectedPlayerCard(
                             color = Ink
                         )
                         Text(
-                            text = "Posicion bloqueada: ${player.position}",
+                            text = "Posición bloqueada: ${player.position}",
                             style = MaterialTheme.typography.bodyMedium,
                             color = Emerald,
                             fontWeight = FontWeight.SemiBold
                         )
                         Text(
-                            text = player.note.ifBlank { "Solo se permite reemplazarlo por perfiles de la misma posicion." },
+                            text = player.note.ifBlank { "Solo se permite sustituirlo por perfiles de la misma posición." },
                             style = MaterialTheme.typography.bodyMedium,
                             color = MutedInk,
                             lineHeight = 21.sp
@@ -638,7 +645,7 @@ private fun SelectedPlayerCard(
                 }
 
                 when {
-                    playerStatsState?.isLoading == true && playerStatsState.summary == null -> {
+                    estadoEstadisticasJugador?.isLoading == true && estadoEstadisticasJugador.summary == null -> {
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -648,18 +655,18 @@ private fun SelectedPlayerCard(
                                 strokeWidth = 2.dp,
                                 color = Emerald
                             )
-                            Text("Cargando estadisticas del jugador...", color = MutedInk)
+                            Text("Cargando estadísticas del jugador...", color = MutedInk)
                         }
                     }
 
-                    playerStatsState?.error != null -> {
+                    estadoEstadisticasJugador?.error != null -> {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = playerStatsState.error,
+                                text = estadoEstadisticasJugador.error,
                                 color = Color(0xFFB42318),
                                 modifier = Modifier.weight(1f)
                             )
@@ -669,7 +676,7 @@ private fun SelectedPlayerCard(
                         }
                     }
 
-                    playerStatsState?.summary != null -> {
+                    estadoEstadisticasJugador?.summary != null -> {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(
                                 text = "Estadisticas individuales",
@@ -681,12 +688,12 @@ private fun SelectedPlayerCard(
                                 modifier = Modifier.horizontalScroll(rememberScrollState()),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                StatPill("PTS", formatStat(playerStatsState.summary.pointsPerGame))
-                                StatPill("REB", formatStat(playerStatsState.summary.reboundsPerGame))
-                                StatPill("AST", formatStat(playerStatsState.summary.assistsPerGame))
-                                StatPill("BLK", formatStat(playerStatsState.summary.blocksPerGame))
-                                StatPill("3P%", formatPercent(playerStatsState.summary.threePointPercentage))
-                                StatPill("TEMP", playerStatsState.summary.season.toString())
+                                StatPill("PTS", formatStat(estadoEstadisticasJugador.summary.pointsPerGame))
+                                StatPill("REB", formatStat(estadoEstadisticasJugador.summary.reboundsPerGame))
+                                StatPill("AST", formatStat(estadoEstadisticasJugador.summary.assistsPerGame))
+                                StatPill("BLK", formatStat(estadoEstadisticasJugador.summary.blocksPerGame))
+                                StatPill("3P%", formatPercent(estadoEstadisticasJugador.summary.threePointPercentage))
+                                StatPill("TEMP", estadoEstadisticasJugador.summary.season.toString())
                             }
                         }
                     }
@@ -704,6 +711,7 @@ private fun SelectedPlayerCard(
     }
 }
 
+// Hoja modal para cambiar entre plantillas actuales y clasicas.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TemplatePickerSheet(
@@ -728,7 +736,7 @@ private fun TemplatePickerSheet(
                 color = Ink
             )
             Text(
-                text = "La galeria solo aparece aqui para no recargar el editor.",
+                text = "La galería solo aparece aquí para no recargar el editor.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MutedInk
             )
@@ -746,7 +754,7 @@ private fun TemplatePickerSheet(
                 FilterChip(
                     selected = selectedCategory == RosterTemplateCategory.CLASSIC,
                     onClick = { onCategoryChange(RosterTemplateCategory.CLASSIC) },
-                    label = { Text("Clasicas") },
+                    label = { Text("Clásicas") },
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = Ink,
                         selectedLabelColor = Color.White
@@ -773,6 +781,7 @@ private fun TemplatePickerSheet(
     }
 }
 
+// Hoja modal con candidatos de reemplazo y su comparativa frente al jugador actual.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ReplacementCandidatesSheet(
@@ -836,7 +845,7 @@ private fun ReplacementCandidatesSheet(
                         ) {
                             CircularProgressIndicator(color = Emerald)
                             Text(
-                                text = "Buscando jugadores de la misma posicion y comparando estadisticas...",
+                                text = "Buscando jugadores de la misma posición y comparando estadísticas...",
                                 color = MutedInk,
                                 textAlign = TextAlign.Center
                             )
@@ -888,6 +897,7 @@ private fun ReplacementCandidatesSheet(
     }
 }
 
+// Tarjeta individual de un posible reemplazo con accion directa para aplicarlo.
 @Composable
 private fun ReplacementCandidateCard(
     candidate: ReplacementCandidate,
@@ -914,10 +924,10 @@ private fun ReplacementCandidateCard(
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     PlayerAvatar(
-                        playerName = playerFullName(candidate.player),
-                        nbaPlayerId = candidate.player.id,
+                        nombreJugador = playerFullName(candidate.player),
+                        idJugadorNba = candidate.player.id,
                         modifier = Modifier.size(54.dp),
-                        fallbackColor = Emerald
+                        colorRespaldo = Emerald
                     )
 
                     Column {
@@ -952,7 +962,7 @@ private fun ReplacementCandidateCard(
                 ) {
                     Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Poner")
+                    Text("Aplicar")
                 }
             }
 
@@ -965,6 +975,7 @@ private fun ReplacementCandidateCard(
     }
 }
 
+// Fila compacta de estadisticas que se reutiliza en comparativas y resúmenes.
 @Composable
 private fun StatsRow(
     title: String,
@@ -1027,6 +1038,7 @@ private fun StatPill(label: String, value: String) {
     }
 }
 
+// Tarjeta de la galeria de plantillas disponibles.
 @Composable
 private fun TemplateCard(
     template: RosterTemplate,
@@ -1070,7 +1082,7 @@ private fun TemplateCard(
                         color = Emerald
                     ) {
                         Text(
-                            text = "Cargada",
+                            text = "Activa",
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                             color = Color.White,
                             fontWeight = FontWeight.Bold
@@ -1097,7 +1109,7 @@ private fun TemplateCard(
                 modifier = Modifier.horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                template.players.take(5).forEach { player ->
+                template.jugadores.take(5).forEach { player ->
                     Surface(
                         shape = RoundedCornerShape(14.dp),
                         color = PageBackground
@@ -1116,7 +1128,7 @@ private fun TemplateCard(
                 onClick = onUseTemplate,
                 colors = ButtonDefaults.buttonColors(containerColor = Emerald)
             ) {
-                Text(if (isActive) "Recargar base" else "Usar plantilla")
+                Text(if (isActive) "Recargar base" else "Usar esta plantilla")
             }
         }
     }
@@ -1151,15 +1163,16 @@ private val COURT_SLOTS = listOf(
     CourtSlot("C", "Pivot", 0.50f, 0.22f)
 )
 
-private fun buildCourtAssignments(players: List<RosterPlayerTemplate>): List<CourtAssignment> {
-    val remainingIndexes = players.indices.toMutableSet()
+// Intenta colocar cada jugador en el hueco de pista mas coherente segun su posicion.
+private fun buildCourtAssignments(jugadores: List<RosterPlayerTemplate>): List<CourtAssignment> {
+    val remainingIndexes = jugadores.indices.toMutableSet()
 
     return COURT_SLOTS.map { slot ->
         val exactMatch = remainingIndexes.firstOrNull { index ->
-            slot.key in normalizedPositionTokens(players[index].position)
+            slot.key in normalizedPositionTokens(jugadores[index].position)
         }
         val familyMatch = exactMatch ?: remainingIndexes.firstOrNull { index ->
-            matchesPositionFamily(normalizedPositionTokens(players[index].position), slot.key)
+            matchesPositionFamily(normalizedPositionTokens(jugadores[index].position), slot.key)
         }
         val fallback = familyMatch ?: remainingIndexes.firstOrNull()
 
@@ -1170,7 +1183,7 @@ private fun buildCourtAssignments(players: List<RosterPlayerTemplate>): List<Cou
         CourtAssignment(
             slot = slot,
             playerIndex = fallback,
-            player = fallback?.let(players::get)
+            player = fallback?.let(jugadores::get)
         )
     }
 }
@@ -1190,6 +1203,7 @@ private fun normalizedPositionTokens(position: String): Set<String> {
         .toSet()
 }
 
+// Acepta equivalencias amplias como G o F cuando no hay coincidencia exacta.
 private fun matchesPositionFamily(tokens: Set<String>, slot: String): Boolean {
     return when (slot) {
         "PG" -> tokens.any { it == "PG" || it == "G" }
@@ -1221,6 +1235,7 @@ private fun formatPercent(value: Double?): String {
     return value?.let { String.format(Locale.US, "%.0f%%", it) } ?: "-"
 }
 
+// Calcula una media sencilla de la plantilla para el panel comparativo superior.
 private fun List<PlayerSeasonStats>.toAverageSummaryOrNull(): RosterAverageSummary? {
     if (isEmpty()) return null
 

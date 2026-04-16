@@ -60,32 +60,33 @@ private enum class ConferenceFilter(val label: String, val value: String?) {
 
 private enum class TeamSortOption(val label: String) {
     NAME("Nombre"),
-    POSITION("Posicion"),
+    POSITION("Posición"),
     POINTS("Puntos")
 }
 
+// Pantalla de equipos con filtros simples y apoyo de clasificacion cuando hace falta ordenar.
 @Composable
 fun TeamsScreen(viewModel: NbaViewModel, modifier: Modifier = Modifier) {
-    val teams = viewModel.teams
-    val isLoading = viewModel.teamsLoading
-    val error = viewModel.teamsError
-    val standings = viewModel.teamStandings
-    val teamStatsLoading = viewModel.teamStatsLoading
-    val teamStatsError = viewModel.teamStatsError
+    val equipos = viewModel.equipos
+    val cargando = viewModel.cargandoEquipos
+    val mensajeError = viewModel.errorEquipos
+    val clasificacion = viewModel.clasificacionEquipos
+    val cargandoEstadisticas = viewModel.cargandoEstadisticasEquipos
+    val errorEstadisticas = viewModel.errorEstadisticasEquipos
 
-    var selectedConference by remember { mutableStateOf(ConferenceFilter.ALL) }
-    var selectedSort by remember { mutableStateOf(TeamSortOption.NAME) }
+    var conferenciaSeleccionada by remember { mutableStateOf(ConferenceFilter.ALL) }
+    var ordenSeleccionado by remember { mutableStateOf(TeamSortOption.NAME) }
 
-    val standingsByTeamId = remember(standings) {
-        standings.associateBy { it.team.id }
+    val clasificacionPorEquipo = remember(clasificacion) {
+        clasificacion.associateBy { it.team.id }
     }
 
-    val filteredTeams = remember(teams, selectedConference, selectedSort, standingsByTeamId) {
-        teams
-            .filter { team ->
-            selectedConference.value == null || team.conference == selectedConference.value
-        }
-            .sortedWith(teamComparator(selectedSort, standingsByTeamId))
+    val equiposFiltrados = remember(equipos, conferenciaSeleccionada, ordenSeleccionado, clasificacionPorEquipo) {
+        equipos
+            .filter { equipo ->
+                conferenciaSeleccionada.value == null || equipo.conference == conferenciaSeleccionada.value
+            }
+            .sortedWith(teamComparator(ordenSeleccionado, clasificacionPorEquipo))
     }
 
     Column(modifier = modifier.fillMaxSize()) {
@@ -115,7 +116,7 @@ fun TeamsScreen(viewModel: NbaViewModel, modifier: Modifier = Modifier) {
         }
 
         when {
-            isLoading && teams.isEmpty() -> {
+            cargando && equipos.isEmpty() -> {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         CircularProgressIndicator(color = Color(0xFFC8102E))
@@ -128,7 +129,7 @@ fun TeamsScreen(viewModel: NbaViewModel, modifier: Modifier = Modifier) {
                 }
             }
 
-            error != null && teams.isEmpty() -> {
+            mensajeError != null && equipos.isEmpty() -> {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -141,13 +142,13 @@ fun TeamsScreen(viewModel: NbaViewModel, modifier: Modifier = Modifier) {
                         )
                         Spacer(Modifier.height(8.dp))
                         Text(
-                            error,
+                            mensajeError,
                             textAlign = TextAlign.Center,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Spacer(Modifier.height(16.dp))
                         Button(
-                            onClick = { viewModel.loadTeams() },
+                            onClick = { viewModel.cargarEquipos() },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1D428A))
                         ) {
                             androidx.compose.material3.Icon(
@@ -177,8 +178,8 @@ fun TeamsScreen(viewModel: NbaViewModel, modifier: Modifier = Modifier) {
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     ConferenceFilter.entries.forEach { option ->
                                         FilterChip(
-                                            selected = selectedConference == option,
-                                            onClick = { selectedConference = option },
+                                            selected = conferenciaSeleccionada == option,
+                                            onClick = { conferenciaSeleccionada = option },
                                             label = { Text(option.label) }
                                         )
                                     }
@@ -194,17 +195,17 @@ fun TeamsScreen(viewModel: NbaViewModel, modifier: Modifier = Modifier) {
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     TeamSortOption.entries.forEach { option ->
                                         FilterChip(
-                                            selected = selectedSort == option,
-                                            onClick = { selectedSort = option },
+                                            selected = ordenSeleccionado == option,
+                                            onClick = { ordenSeleccionado = option },
                                             label = { Text(option.label) }
                                         )
                                     }
                                 }
                             }
 
-                            if (selectedSort != TeamSortOption.NAME && teamStatsLoading && standings.isEmpty()) {
+                            if (ordenSeleccionado != TeamSortOption.NAME && cargandoEstadisticas && clasificacion.isEmpty()) {
                                 Text(
-                                    "Cargando clasificacion para aplicar el orden...",
+                                    "Cargando la clasificación para aplicar el orden...",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -212,13 +213,13 @@ fun TeamsScreen(viewModel: NbaViewModel, modifier: Modifier = Modifier) {
                         }
                     }
 
-                    items(filteredTeams, key = { it.id }) { team ->
+                    items(equiposFiltrados, key = { it.id }) { equipo ->
                         TeamCard(
-                            team = team,
-                            standing = standingsByTeamId[team.id],
-                            isStatsLoading = teamStatsLoading,
-                            statsError = teamStatsError,
-                            onRequestStats = { viewModel.loadTeamStandingsIfNeeded() }
+                            team = equipo,
+                            standing = clasificacionPorEquipo[equipo.id],
+                            isStatsLoading = cargandoEstadisticas,
+                            statsError = errorEstadisticas,
+                            onRequestStats = viewModel::cargarClasificacionEquiposSiHaceFalta
                         )
                     }
                 }
@@ -227,18 +228,19 @@ fun TeamsScreen(viewModel: NbaViewModel, modifier: Modifier = Modifier) {
     }
 
     LaunchedEffect(Unit) {
-        if (!isLoading && teams.isEmpty() && error == null) {
-            viewModel.loadTeams()
+        if (!cargando && equipos.isEmpty() && mensajeError == null) {
+            viewModel.cargarEquipos()
         }
     }
 
-    LaunchedEffect(selectedSort, teams) {
-        if (selectedSort != TeamSortOption.NAME && teams.isNotEmpty()) {
-            viewModel.loadTeamStandingsIfNeeded()
+    LaunchedEffect(ordenSeleccionado, equipos) {
+        if (ordenSeleccionado != TeamSortOption.NAME && equipos.isNotEmpty()) {
+            viewModel.cargarClasificacionEquiposSiHaceFalta()
         }
     }
 }
 
+// Tarjeta de equipo que se expande para mostrar datos basicos de rendimiento.
 @Composable
 private fun TeamCard(
     team: Team,
@@ -247,8 +249,8 @@ private fun TeamCard(
     statsError: String?,
     onRequestStats: () -> Unit
 ) {
-    var expanded by remember(team.id) { mutableStateOf(false) }
-    val accentColor = if (team.conference == "East") {
+    var expandida by remember(team.id) { mutableStateOf(false) }
+    val colorAcento = if (team.conference == "East") {
         Color(0xFF1D428A)
     } else {
         Color(0xFFC8102E)
@@ -258,8 +260,8 @@ private fun TeamCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable {
-                expanded = !expanded
-                if (expanded && standing == null && !isStatsLoading) {
+                expandida = !expandida
+                if (expandida && standing == null && !isStatsLoading) {
                     onRequestStats()
                 }
             },
@@ -274,10 +276,10 @@ private fun TeamCard(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 TeamLogo(
-                    abbreviation = team.abbreviation,
-                    teamName = team.fullName,
+                    abreviatura = team.abbreviation,
+                    nombreEquipo = team.fullName,
                     modifier = Modifier.size(56.dp),
-                    fallbackColor = accentColor
+                    colorRespaldo = colorAcento
                 )
 
                 Spacer(Modifier.width(16.dp))
@@ -303,20 +305,20 @@ private fun TeamCard(
 
                 Surface(
                     shape = CircleShape,
-                    color = accentColor.copy(alpha = 0.14f)
+                    color = colorAcento.copy(alpha = 0.14f)
                 ) {
                     Text(
                         text = team.abbreviation,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
-                        color = accentColor
+                        color = colorAcento
                     )
                 }
             }
 
             AnimatedVisibility(
-                visible = expanded,
+                visible = expandida,
                 enter = expandVertically(),
                 exit = shrinkVertically()
             ) {
@@ -332,21 +334,21 @@ private fun TeamCard(
                                 CircularProgressIndicator(
                                     modifier = Modifier.size(22.dp),
                                     strokeWidth = 2.dp,
-                                    color = accentColor
+                                    color = colorAcento
                                 )
                             }
                         }
 
                         standing != null -> {
                             DetailRow("Victorias", standing.wins.toString())
-                            DetailRow("Posicion en la liga", positionValue(standing.leagueRank))
+                            DetailRow("Posición en la liga", positionValue(standing.leagueRank))
                             DetailRow("Puntos totales", standing.points.toString())
                         }
 
                         else -> {
                             DetailRow(
                                 "Estado",
-                                statsError ?: "No se pudieron cargar las estadisticas"
+                                statsError ?: "No se pudieron cargar las estadísticas"
                             )
                         }
                     }
@@ -396,15 +398,16 @@ private fun positionValue(rank: Int): String {
     return if (rank > 0) "#$rank" else "--"
 }
 
+// Devuelve el comparador adecuado segun el criterio elegido por el usuario.
 private fun teamComparator(
-    sortOption: TeamSortOption,
-    standingsByTeamId: Map<Int, TeamStandingSummary>
+    opcionOrden: TeamSortOption,
+    clasificacionPorEquipo: Map<Int, TeamStandingSummary>
 ): Comparator<Team> {
-    return when (sortOption) {
+    return when (opcionOrden) {
         TeamSortOption.NAME -> compareBy { it.fullName }
-        TeamSortOption.POSITION -> compareBy<Team> { standingsByTeamId[it.id]?.leagueRank ?: Int.MAX_VALUE }
+        TeamSortOption.POSITION -> compareBy<Team> { clasificacionPorEquipo[it.id]?.leagueRank ?: Int.MAX_VALUE }
             .thenBy { it.fullName }
-        TeamSortOption.POINTS -> compareByDescending<Team> { standingsByTeamId[it.id]?.points ?: Int.MIN_VALUE }
+        TeamSortOption.POINTS -> compareByDescending<Team> { clasificacionPorEquipo[it.id]?.points ?: Int.MIN_VALUE }
             .thenBy { it.fullName }
     }
 }

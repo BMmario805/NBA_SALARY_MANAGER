@@ -69,17 +69,18 @@ import com.example.nba_salary_manager.ui.components.PlayerAvatar
 import com.example.nba_salary_manager.viewmodel.NbaViewModel
 import java.util.Locale
 
+// Pantalla principal de jugadores: busqueda, filtros, orden y detalle estadistico.
 @Composable
 fun PlayersScreen(viewModel: NbaViewModel, modifier: Modifier = Modifier) {
-    val allPlayers = viewModel.players
-    val players = viewModel.visiblePlayers
-    val isLoading = viewModel.playersLoading
-    val error = viewModel.playersError
-    val searchQuery = viewModel.playerSearchQuery
-    val canLoadMorePlayers = viewModel.canLoadMorePlayers
-    val selectedPositionFilter = viewModel.selectedPlayerPositionFilter
-    val selectedSortOption = viewModel.selectedPlayerSortOption
-    val keyboardController = LocalSoftwareKeyboardController.current
+    val todosLosJugadores = viewModel.jugadores
+    val jugadoresVisibles = viewModel.jugadoresVisibles
+    val cargando = viewModel.cargandoJugadores
+    val mensajeError = viewModel.errorJugadores
+    val busqueda = viewModel.busquedaJugador
+    val puedeCargarMasJugadores = viewModel.puedeCargarMasJugadores
+    val filtroPosicionSeleccionado = viewModel.filtroPosicionJugadorSeleccionado
+    val ordenSeleccionado = viewModel.ordenJugadorSeleccionado
+    val controladorTeclado = LocalSoftwareKeyboardController.current
 
     Column(modifier = modifier.fillMaxSize()) {
         Box(
@@ -100,7 +101,7 @@ fun PlayersScreen(viewModel: NbaViewModel, modifier: Modifier = Modifier) {
                     color = Color.White
                 )
                 Text(
-                    "Busca entre mas de 4800 jugadores",
+                    "Consulta una base con más de 4800 jugadores",
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color.White.copy(alpha = 0.8f)
                 )
@@ -108,20 +109,20 @@ fun PlayersScreen(viewModel: NbaViewModel, modifier: Modifier = Modifier) {
         }
 
         OutlinedTextField(
-            value = searchQuery,
-            onValueChange = { viewModel.updatePlayerSearch(it) },
+            value = busqueda,
+            onValueChange = { viewModel.actualizarBusquedaJugador(it) },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 12.dp),
-            placeholder = { Text("Buscar jugador (ej: LeBron, Curry)") },
+            placeholder = { Text("Buscar jugador, por ejemplo: LeBron o Curry") },
             leadingIcon = {
                 Icon(Icons.Default.Search, contentDescription = null, tint = Color(0xFF552583))
             },
             trailingIcon = {
                 IconButton(
                     onClick = {
-                        viewModel.searchPlayers()
-                        keyboardController?.hide()
+                        viewModel.buscarJugadores()
+                        controladorTeclado?.hide()
                     }
                 ) {
                     Icon(Icons.Default.Search, contentDescription = "Buscar", tint = Color(0xFF552583))
@@ -132,8 +133,8 @@ fun PlayersScreen(viewModel: NbaViewModel, modifier: Modifier = Modifier) {
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(
                 onSearch = {
-                    viewModel.searchPlayers()
-                    keyboardController?.hide()
+                    viewModel.buscarJugadores()
+                    controladorTeclado?.hide()
                 }
             ),
             colors = OutlinedTextFieldDefaults.colors(
@@ -143,14 +144,14 @@ fun PlayersScreen(viewModel: NbaViewModel, modifier: Modifier = Modifier) {
         )
 
         PlayerFilterBar(
-            selectedPositionFilter = selectedPositionFilter,
-            selectedSortOption = selectedSortOption,
-            onPositionSelected = viewModel::updatePlayerPositionFilter,
-            onSortSelected = viewModel::updatePlayerSortOption
+            selectedPositionFilter = filtroPosicionSeleccionado,
+            selectedSortOption = ordenSeleccionado,
+            onPositionSelected = viewModel::actualizarFiltroPosicionJugador,
+            onSortSelected = viewModel::actualizarOrdenJugador
         )
 
         when {
-            isLoading && allPlayers.isEmpty() -> {
+            cargando && todosLosJugadores.isEmpty() -> {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         CircularProgressIndicator(color = Color(0xFF552583))
@@ -160,7 +161,7 @@ fun PlayersScreen(viewModel: NbaViewModel, modifier: Modifier = Modifier) {
                 }
             }
 
-            error != null && allPlayers.isEmpty() -> {
+            mensajeError != null && todosLosJugadores.isEmpty() -> {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -173,13 +174,13 @@ fun PlayersScreen(viewModel: NbaViewModel, modifier: Modifier = Modifier) {
                         )
                         Spacer(Modifier.height(8.dp))
                         Text(
-                            error,
+                            mensajeError,
                             textAlign = TextAlign.Center,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Spacer(Modifier.height(16.dp))
                         Button(
-                            onClick = { viewModel.searchPlayers() },
+                            onClick = { viewModel.buscarJugadores() },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF552583))
                         ) {
                             Icon(Icons.Default.Refresh, contentDescription = null)
@@ -190,7 +191,7 @@ fun PlayersScreen(viewModel: NbaViewModel, modifier: Modifier = Modifier) {
                 }
             }
 
-            players.isEmpty() && !isLoading -> {
+            jugadoresVisibles.isEmpty() && !cargando -> {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(
@@ -204,15 +205,15 @@ fun PlayersScreen(viewModel: NbaViewModel, modifier: Modifier = Modifier) {
                             "No se encontraron jugadores",
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        if (canLoadMorePlayers) {
+                        if (puedeCargarMasJugadores) {
                             Spacer(Modifier.height(12.dp))
                             OutlinedButton(
-                                onClick = { viewModel.loadMorePlayers() },
+                                onClick = { viewModel.cargarMasJugadores() },
                                 colors = ButtonDefaults.outlinedButtonColors(
                                     contentColor = Color(0xFF552583)
                                 )
                             ) {
-                                Text("Cargar mas jugadores")
+                                Text("Cargar más jugadores")
                             }
                         }
                     }
@@ -224,13 +225,13 @@ fun PlayersScreen(viewModel: NbaViewModel, modifier: Modifier = Modifier) {
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    if (selectedSortOption.requiresStats) {
+                    if (ordenSeleccionado.requiresStats) {
                         item {
                             Text(
-                                text = if (searchQuery.isBlank()) {
-                                    "Ranking real de temporada por ${selectedSortOption.label.lowercase(Locale.getDefault())}, usando estadisticas agregadas de jugadores activos."
+                                text = if (busqueda.isBlank()) {
+                                    "Ranking real de la temporada por ${ordenSeleccionado.label.lowercase(Locale.getDefault())}, usando estadísticas agregadas de jugadores activos."
                                 } else {
-                                    "Ordenando los resultados buscados por ${selectedSortOption.label.lowercase(Locale.getDefault())}."
+                                    "Los resultados buscados se están ordenando por ${ordenSeleccionado.label.lowercase(Locale.getDefault())}."
                                 },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -238,31 +239,31 @@ fun PlayersScreen(viewModel: NbaViewModel, modifier: Modifier = Modifier) {
                         }
                     }
 
-                    items(players, key = { it.id }) { player ->
+                    items(jugadoresVisibles, key = { it.id }) { jugador ->
                         PlayerCard(
-                            player = player,
+                            player = jugador,
                             viewModel = viewModel,
-                            sortOption = selectedSortOption
+                            sortOption = ordenSeleccionado
                         )
                     }
 
-                    if (canLoadMorePlayers && !isLoading) {
+                    if (puedeCargarMasJugadores && !cargando) {
                         item {
                             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                                 OutlinedButton(
-                                    onClick = { viewModel.loadMorePlayers() },
+                                    onClick = { viewModel.cargarMasJugadores() },
                                     modifier = Modifier.padding(8.dp),
                                     colors = ButtonDefaults.outlinedButtonColors(
                                         contentColor = Color(0xFF552583)
                                     )
                                 ) {
-                                    Text("Cargar mas jugadores")
+                                    Text("Cargar más jugadores")
                                 }
                             }
                         }
                     }
 
-                    if (isLoading) {
+                    if (cargando) {
                         item {
                             Box(
                                 modifier = Modifier
@@ -283,12 +284,13 @@ fun PlayersScreen(viewModel: NbaViewModel, modifier: Modifier = Modifier) {
     }
 
     LaunchedEffect(Unit) {
-        if (!isLoading && allPlayers.isEmpty() && error == null) {
-            viewModel.loadPlayers()
+        if (!cargando && todosLosJugadores.isEmpty() && mensajeError == null) {
+            viewModel.cargarJugadores()
         }
     }
 }
 
+// Barra de chips para acotar la lista por posicion y criterio de orden.
 @Composable
 private fun PlayerFilterBar(
     selectedPositionFilter: PlayerPositionFilter,
@@ -302,7 +304,7 @@ private fun PlayerFilterBar(
             .padding(horizontal = 16.dp)
     ) {
         Text(
-            "Filtrar por posicion",
+            "Filtrar por posición",
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface
@@ -341,20 +343,21 @@ private fun PlayerFilterBar(
     }
 }
 
+// Tarjeta resumida de cada jugador con acceso rapido a sus estadisticas.
 @Composable
 private fun PlayerCard(player: Player, viewModel: NbaViewModel, sortOption: PlayerSortOption) {
-    var expanded by remember { mutableStateOf(false) }
-    val statsState = viewModel.playerStatsState(player.id)
-    val sortSummary = viewModel.playerSummaryForSorting(player.id)
+    var expandida by remember { mutableStateOf(false) }
+    val estadoEstadisticas = viewModel.estadoEstadisticasJugador(player.id)
+    val resumenOrden = viewModel.resumenJugadorParaOrdenar(player.id)
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable {
-                val nextExpanded = !expanded
-                expanded = nextExpanded
-                if (nextExpanded) {
-                    viewModel.loadPlayerStats(player)
+                val siguienteEstado = !expandida
+                expandida = siguienteEstado
+                if (siguienteEstado) {
+                    viewModel.cargarEstadisticasJugador(player)
                 }
             },
         shape = RoundedCornerShape(16.dp),
@@ -368,10 +371,10 @@ private fun PlayerCard(player: Player, viewModel: NbaViewModel, sortOption: Play
             ) {
                 Box(contentAlignment = Alignment.BottomEnd) {
                     PlayerAvatar(
-                        playerName = "${player.firstName} ${player.lastName}",
-                        nbaPlayerId = null,
+                        nombreJugador = "${player.firstName} ${player.lastName}",
+                        idJugadorNba = null,
                         modifier = Modifier.size(56.dp),
-                        fallbackColor = Color(0xFF552583)
+                        colorRespaldo = Color(0xFF552583)
                     )
 
                     Surface(
@@ -415,7 +418,7 @@ private fun PlayerCard(player: Player, viewModel: NbaViewModel, sortOption: Play
                             }
                         }
                         Text(
-                            player.team?.fullName ?: "Free Agent",
+                            player.team?.fullName ?: "Agente libre",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -428,7 +431,7 @@ private fun PlayerCard(player: Player, viewModel: NbaViewModel, sortOption: Play
                             color = Color(0xFFFDB927).copy(alpha = 0.18f)
                         ) {
                             Text(
-                                text = "${sortOption.label}: ${playerSortMetricValue(statsState, sortSummary, sortOption)}",
+                                text = "${sortOption.label}: ${playerSortMetricValue(estadoEstadisticas, resumenOrden, sortOption)}",
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
@@ -440,7 +443,7 @@ private fun PlayerCard(player: Player, viewModel: NbaViewModel, sortOption: Play
             }
 
             AnimatedVisibility(
-                visible = expanded,
+                visible = expandida,
                 enter = expandVertically(),
                 exit = shrinkVertically()
             ) {
@@ -449,15 +452,15 @@ private fun PlayerCard(player: Player, viewModel: NbaViewModel, sortOption: Play
                     player.height?.let { PlayerDetailRow("Altura", it) }
                     player.weight?.let { PlayerDetailRow("Peso", "$it lbs") }
                     player.college?.let { PlayerDetailRow("Universidad", it) }
-                    player.country?.let { PlayerDetailRow("Pais", it) }
+                    player.country?.let { PlayerDetailRow("País", it) }
                     player.draftYear?.let { year ->
                         val round = player.draftRound ?: "-"
                         val number = player.draftNumber ?: "-"
                         PlayerDetailRow("Draft", "$year - Ronda $round - Pick #$number")
                     }
                     PlayerStatsSection(
-                        statsState = statsState,
-                        onRetry = { viewModel.loadPlayerStats(player, forceRefresh = true) }
+                        statsState = estadoEstadisticas,
+                        onRetry = { viewModel.cargarEstadisticasJugador(player, forzarRecarga = true) }
                     )
                 }
             }
@@ -465,6 +468,7 @@ private fun PlayerCard(player: Player, viewModel: NbaViewModel, sortOption: Play
     }
 }
 
+// Bloque expandible que muestra carga, error o el resumen de temporada del jugador.
 @Composable
 private fun PlayerStatsSection(
     statsState: PlayerStatsUiState,
@@ -473,7 +477,7 @@ private fun PlayerStatsSection(
     Column(modifier = Modifier.fillMaxWidth()) {
         Spacer(Modifier.height(12.dp))
         Text(
-            "Estadisticas completas",
+            "Estadísticas completas",
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.Bold,
             color = Color(0xFF552583)
@@ -493,7 +497,7 @@ private fun PlayerStatsSection(
                     )
                     Spacer(Modifier.width(10.dp))
                     Text(
-                        "Cargando estadisticas del jugador...",
+                        "Cargando estadísticas del jugador...",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -519,7 +523,7 @@ private fun PlayerStatsSection(
 
             statsState.hasLoaded && statsState.summary == null -> {
                 Text(
-                    "No hay estadisticas disponibles para este jugador.",
+                    "No hay estadísticas disponibles para este jugador.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -532,6 +536,7 @@ private fun PlayerStatsSection(
     }
 }
 
+// Resumen compacto que reutiliza el mismo formato fila-etiqueta para todas las metricas.
 @Composable
 private fun PlayerStatsSummary(summary: PlayerSeasonStats) {
     PlayerDetailRow("Temporada", summary.season.toString())
@@ -543,11 +548,11 @@ private fun PlayerStatsSummary(summary: PlayerSeasonStats) {
     PlayerDetailRow("Asistencias por partido", formatDecimal(summary.assistsPerGame))
     PlayerDetailRow("Robos por partido", formatDecimal(summary.stealsPerGame))
     PlayerDetailRow("Tapones por partido", formatDecimal(summary.blocksPerGame))
-    PlayerDetailRow("Perdidas por partido", formatDecimal(summary.turnoversPerGame))
+    PlayerDetailRow("Pérdidas por partido", formatDecimal(summary.turnoversPerGame))
     PlayerDetailRow("Faltas por partido", formatDecimal(summary.foulsPerGame))
     PlayerDetailRow("Rebotes ofensivos por partido", formatDecimal(summary.offensiveReboundsPerGame))
     PlayerDetailRow("Rebotes defensivos por partido", formatDecimal(summary.defensiveReboundsPerGame))
-    PlayerDetailRow("Mas/menos por partido", formatSignedDecimal(summary.plusMinusPerGame))
+    PlayerDetailRow("Más/menos por partido", formatSignedDecimal(summary.plusMinusPerGame))
     PlayerDetailRow(
         "Tiros de campo",
         "${formatPercentage(summary.fieldGoalPercentage)} (${summary.fieldGoalsMade}/${summary.fieldGoalsAttempted})"
@@ -562,7 +567,7 @@ private fun PlayerStatsSummary(summary: PlayerSeasonStats) {
     )
     summary.doubleDoubles?.let { PlayerDetailRow("Dobles-dobles", it.toString()) }
     summary.tripleDoubles?.let { PlayerDetailRow("Triples-dobles", it.toString()) }
-    summary.assistToTurnoverRatio?.let { PlayerDetailRow("Relacion asistencias/perdidas", formatDecimal(it)) }
+    summary.assistToTurnoverRatio?.let { PlayerDetailRow("Relación asistencias/pérdidas", formatDecimal(it)) }
     summary.scoringEfficiency?.let { PlayerDetailRow("Eficiencia anotadora", formatDecimal(it)) }
     summary.shootingEfficiency?.let { PlayerDetailRow("Eficiencia de tiro", formatDecimal(it)) }
 }
@@ -589,21 +594,22 @@ private fun PlayerDetailRow(label: String, value: String) {
     }
 }
 
+// Convierte el criterio de orden actual en el valor que se ensena dentro de la tarjeta.
 private fun playerSortMetricValue(
-    statsState: PlayerStatsUiState,
-    summary: PlayerSeasonStats?,
-    sortOption: PlayerSortOption
+    estadoEstadisticas: PlayerStatsUiState,
+    resumen: PlayerSeasonStats?,
+    opcionOrden: PlayerSortOption
 ): String {
-    if (statsState.isLoading) return "..."
-    val resolvedSummary = summary ?: statsState.summary ?: return "-"
-    return when (sortOption) {
+    if (estadoEstadisticas.isLoading) return "..."
+    val resumenResuelto = resumen ?: estadoEstadisticas.summary ?: return "-"
+    return when (opcionOrden) {
         PlayerSortOption.NAME -> "-"
-        PlayerSortOption.POINTS -> formatDecimal(resolvedSummary.pointsPerGame)
-        PlayerSortOption.REBOUNDS -> formatDecimal(resolvedSummary.reboundsPerGame)
-        PlayerSortOption.ASSISTS -> formatDecimal(resolvedSummary.assistsPerGame)
-        PlayerSortOption.STEALS -> formatDecimal(resolvedSummary.stealsPerGame)
-        PlayerSortOption.BLOCKS -> formatDecimal(resolvedSummary.blocksPerGame)
-        PlayerSortOption.MINUTES -> formatDecimal(resolvedSummary.minutesPerGame)
+        PlayerSortOption.POINTS -> formatDecimal(resumenResuelto.pointsPerGame)
+        PlayerSortOption.REBOUNDS -> formatDecimal(resumenResuelto.reboundsPerGame)
+        PlayerSortOption.ASSISTS -> formatDecimal(resumenResuelto.assistsPerGame)
+        PlayerSortOption.STEALS -> formatDecimal(resumenResuelto.stealsPerGame)
+        PlayerSortOption.BLOCKS -> formatDecimal(resumenResuelto.blocksPerGame)
+        PlayerSortOption.MINUTES -> formatDecimal(resumenResuelto.minutesPerGame)
     }
 }
 
@@ -611,6 +617,7 @@ private fun formatDecimal(value: Double?): String {
     return value?.let { String.format(Locale.US, "%.1f", it) } ?: "-"
 }
 
+// Anade signo explicito para metricas donde interesa distinguir positivos y negativos.
 private fun formatSignedDecimal(value: Double?): String {
     return value?.let {
         val prefix = if (it > 0) "+" else ""

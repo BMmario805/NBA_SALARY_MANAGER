@@ -33,15 +33,15 @@ import com.example.nba_salary_manager.viewmodel.AuthViewModel
 import com.example.nba_salary_manager.viewmodel.NbaViewModel
 
 class MainActivity : ComponentActivity() {
-    private val authViewModel by lazy { AuthViewModel(applicationContext) }
-    private val nbaViewModel by lazy { NbaViewModel(applicationContext) }
+    private val viewModelAutenticacion by lazy { AuthViewModel(applicationContext) }
+    private val viewModelNba by lazy { NbaViewModel(applicationContext) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             NBA_SALARY_MANAGERTheme {
-                NBA_SALARY_MANAGERApp(nbaViewModel, authViewModel)
+                NBA_SALARY_MANAGERApp(viewModelNba, viewModelAutenticacion)
             }
         }
     }
@@ -49,23 +49,23 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NBA_SALARY_MANAGERApp(nbaViewModel: NbaViewModel, authViewModel: AuthViewModel) {
-    val currentUser by authViewModel.currentUser
-    var currentDestination by rememberSaveable { mutableStateOf<AppDestinations>(AppDestinations.TEAMS) }
-    var showAuthDialog by rememberSaveable { mutableStateOf(false) }
-    var showUserSettings by rememberSaveable { mutableStateOf(false) }
+fun NBA_SALARY_MANAGERApp(viewModelNba: NbaViewModel, viewModelAutenticacion: AuthViewModel) {
+    val usuarioActual by viewModelAutenticacion.currentUser
+    var destinoActual by rememberSaveable { mutableStateOf<DestinosApp>(DestinosApp.EQUIPOS) }
+    var mostrarDialogoAuth by rememberSaveable { mutableStateOf(false) }
+    var mostrarAjustesUsuario by rememberSaveable { mutableStateOf(false) }
 
-    LaunchedEffect(currentUser) {
-        if (currentUser == null) {
-            showUserSettings = false
+    LaunchedEffect(usuarioActual) {
+        if (usuarioActual == null) {
+            mostrarAjustesUsuario = false
         } else {
-            showAuthDialog = false
+            mostrarDialogoAuth = false
         }
     }
 
     NavigationSuiteScaffold(
         navigationSuiteItems = {
-            AppDestinations.entries.forEach {
+            DestinosApp.entries.forEach {
                 item(
                     icon = {
                         Icon(
@@ -74,8 +74,8 @@ fun NBA_SALARY_MANAGERApp(nbaViewModel: NbaViewModel, authViewModel: AuthViewMod
                         )
                     },
                     label = { Text(it.label) },
-                    selected = it == currentDestination,
-                    onClick = { currentDestination = it }
+                    selected = it == destinoActual,
+                    onClick = { destinoActual = it }
                 )
             }
         }
@@ -84,15 +84,15 @@ fun NBA_SALARY_MANAGERApp(nbaViewModel: NbaViewModel, authViewModel: AuthViewMod
             modifier = Modifier.fillMaxSize(),
             topBar = {
                 CenterAlignedTopAppBar(
-                    title = { Text("NBA Manager") },
+                    title = { Text("Gestor salarial NBA") },
                     navigationIcon = {
                         UserAccessButton(
-                            user = currentUser,
+                            user = usuarioActual,
                             onClick = {
-                                if (currentUser == null) {
-                                    showAuthDialog = true
+                                if (usuarioActual == null) {
+                                    mostrarDialogoAuth = true
                                 } else {
-                                    showUserSettings = true
+                                    mostrarAjustesUsuario = true
                                 }
                             }
                         )
@@ -100,50 +100,50 @@ fun NBA_SALARY_MANAGERApp(nbaViewModel: NbaViewModel, authViewModel: AuthViewMod
                 )
             }
         ) { innerPadding ->
-            when (currentDestination) {
-                AppDestinations.TEAMS -> TeamsScreen(
-                    viewModel = nbaViewModel,
+            when (destinoActual) {
+                DestinosApp.EQUIPOS -> TeamsScreen(
+                    viewModel = viewModelNba,
                     modifier = Modifier.padding(innerPadding)
                 )
-                AppDestinations.PLAYERS -> PlayersScreen(
-                    viewModel = nbaViewModel,
+                DestinosApp.JUGADORES -> PlayersScreen(
+                    viewModel = viewModelNba,
                     modifier = Modifier.padding(innerPadding)
                 )
-                AppDestinations.GAMES -> GamesScreen(
-                    viewModel = nbaViewModel,
+                DestinosApp.PARTIDOS -> GamesScreen(
+                    viewModel = viewModelNba,
                     modifier = Modifier.padding(innerPadding)
                 )
-                AppDestinations.ROSTERS -> RosterTemplatesScreen(
-                    viewModel = nbaViewModel,
+                DestinosApp.PLANTILLAS -> RosterTemplatesScreen(
+                    viewModel = viewModelNba,
                     modifier = Modifier.padding(innerPadding)
                 )
             }
         }
     }
 
-    if (showAuthDialog) {
+    if (mostrarDialogoAuth) {
         AuthDialog(
-            viewModel = authViewModel,
-            onDismiss = { showAuthDialog = false },
-            onAuthenticated = { showAuthDialog = false }
+            viewModel = viewModelAutenticacion,
+            onDismiss = { mostrarDialogoAuth = false },
+            onAuthenticated = { mostrarDialogoAuth = false }
         )
     }
 
-    if (showUserSettings && currentUser != null) {
+    if (mostrarAjustesUsuario && usuarioActual != null) {
         UserSettingsSheet(
-            user = currentUser!!,
-            viewModel = authViewModel,
-            onDismiss = { showUserSettings = false }
+            user = usuarioActual!!,
+            viewModel = viewModelAutenticacion,
+            onDismiss = { mostrarAjustesUsuario = false }
         )
     }
 }
 
-enum class AppDestinations(
+enum class DestinosApp(
     val label: String,
     val icon: ImageVector,
 ) {
-    TEAMS("Equipos", Icons.Default.Home),
-    PLAYERS("Jugadores", Icons.Default.Person),
-    GAMES("Partidos", Icons.Default.DateRange),
-    ROSTERS("Plantillas", Icons.Default.Edit),
+    EQUIPOS("Equipos", Icons.Default.Home),
+    JUGADORES("Jugadores", Icons.Default.Person),
+    PARTIDOS("Partidos", Icons.Default.DateRange),
+    PLANTILLAS("Plantillas", Icons.Default.Edit),
 }

@@ -24,45 +24,45 @@ import com.example.nba_salary_manager.data.api.PlayerPhotoRepository
 
 @Composable
 fun PlayerAvatar(
-    playerName: String,
-    nbaPlayerId: Int? = null,
+    nombreJugador: String,
+    idJugadorNba: Int? = null,
     modifier: Modifier = Modifier,
-    fallbackColor: Color
+    colorRespaldo: Color
 ) {
-    val photoUrlState = produceState<String?>(initialValue = null, key1 = playerName, key2 = nbaPlayerId) {
+    val estadoUrlFoto = produceState<String?>(initialValue = null, key1 = nombreJugador, key2 = idJugadorNba) {
         value = try {
-            PlayerPhotoRepository.getHeadshotUrl(nbaPlayerId)
-                ?: PlayerPhotoRepository.getPhotoUrl(playerName)
+            PlayerPhotoRepository.getHeadshotUrl(idJugadorNba)
+                ?: PlayerPhotoRepository.getPhotoUrl(nombreJugador)
         } catch (_: Exception) {
             null
         }
     }
 
-    val photoUrl = photoUrlState.value
-    var imageFailed by remember(playerName, nbaPlayerId, photoUrl) {
+    val urlFoto = estadoUrlFoto.value
+    var falloImagen by remember(nombreJugador, idJugadorNba, urlFoto) {
         mutableStateOf(false)
     }
 
-    if (!photoUrl.isNullOrBlank() && !imageFailed) {
+    if (!urlFoto.isNullOrBlank() && !falloImagen) {
         AsyncImage(
             model = ImageRequest.Builder(LocalContext.current)
-                .data(photoUrl)
+                .data(urlFoto)
                 .crossfade(true)
                 .build(),
-            contentDescription = playerName,
+            contentDescription = nombreJugador,
             modifier = modifier.clip(CircleShape),
             contentScale = ContentScale.Crop,
-            onError = { imageFailed = true }
+            onError = { falloImagen = true }
         )
     } else {
         Box(
             modifier = modifier
                 .clip(CircleShape)
-                .background(fallbackColor),
+                .background(colorRespaldo),
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = playerInitials(playerName),
+                text = inicialesJugador(nombreJugador),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
                 color = Color.White
@@ -71,8 +71,8 @@ fun PlayerAvatar(
     }
 }
 
-private fun playerInitials(playerName: String): String {
-    return playerName
+private fun inicialesJugador(nombreJugador: String): String {
+    return nombreJugador
         .trim()
         .split(" ")
         .filter { it.isNotBlank() }

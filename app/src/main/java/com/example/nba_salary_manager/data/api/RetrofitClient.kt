@@ -23,7 +23,7 @@ object RetrofitClient {
         .addInterceptor(authInterceptor)
         .build()
 
-    val api: NbaApiService by lazy {
+    val servicioApi: NbaApiService by lazy {
         Retrofit.Builder()
             .baseUrl(BASE_URL)
             .client(okHttpClient)

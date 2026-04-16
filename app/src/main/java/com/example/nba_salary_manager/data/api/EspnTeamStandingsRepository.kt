@@ -10,6 +10,7 @@ import java.net.URL
 import java.util.Locale
 import kotlin.math.roundToInt
 
+// Descarga la clasificacion desde ESPN y la adapta al modelo que usa la interfaz.
 object EspnTeamStandingsRepository {
 
     private const val BASE_URL =
@@ -17,77 +18,78 @@ object EspnTeamStandingsRepository {
             "?region=us&lang=en&contentorigin=espn&type=0&level=1" +
             "&sort=winpercent%3Adesc%2Cwins%3Adesc%2Cgamesbehind%3Aasc"
 
-    suspend fun getTeamStandings(
-        seasonYear: Int,
-        teams: List<Team>
+    suspend fun obtenerClasificacionEquipos(
+        anioTemporada: Int,
+        equipos: List<Team>
     ): List<TeamStandingSummary> = withContext(Dispatchers.IO) {
-        val connection = (URL("$BASE_URL&season=$seasonYear").openConnection() as HttpURLConnection)
-        connection.requestMethod = "GET"
-        connection.connectTimeout = 10000
-        connection.readTimeout = 10000
-        connection.setRequestProperty("Accept", "application/json")
-        connection.setRequestProperty("User-Agent", "Mozilla/5.0")
+        val conexion = (URL("$BASE_URL&season=$anioTemporada").openConnection() as HttpURLConnection)
+        conexion.requestMethod = "GET"
+        conexion.connectTimeout = 10000
+        conexion.readTimeout = 10000
+        conexion.setRequestProperty("Accept", "application/json")
+        conexion.setRequestProperty("User-Agent", "Mozilla/5.0")
 
         try {
-            val responseCode = connection.responseCode
-            if (responseCode !in 200..299) {
-                throw IllegalStateException("HTTP $responseCode")
+            val codigoRespuesta = conexion.responseCode
+            if (codigoRespuesta !in 200..299) {
+                throw IllegalStateException("HTTP $codigoRespuesta")
             }
 
-            val body = connection.inputStream.bufferedReader().use { it.readText() }
-            parseStandings(body, teams)
+            val cuerpo = conexion.inputStream.bufferedReader().use { it.readText() }
+            parsearClasificacion(cuerpo, equipos)
         } finally {
-            connection.disconnect()
+            conexion.disconnect()
         }
     }
 
-    private fun parseStandings(body: String, teams: List<Team>): List<TeamStandingSummary> {
-        val root = JSONObject(body)
-        val entries = root
+    // Recorre la respuesta cruda y calcula el ranking general y por conferencia.
+    private fun parsearClasificacion(cuerpo: String, equipos: List<Team>): List<TeamStandingSummary> {
+        val raiz = JSONObject(cuerpo)
+        val entradas = raiz
             .optJSONObject("standings")
             ?.optJSONArray("entries")
             ?: return emptyList()
 
-        val teamsByAbbreviation = teams.associateBy { it.abbreviation.uppercase(Locale.US) }
-        val rawEntries = mutableListOf<RawStandingEntry>()
+        val equiposPorAbreviatura = equipos.associateBy { it.abbreviation.uppercase(Locale.US) }
+        val entradasCrudas = mutableListOf<EntradaClasificacionCruda>()
 
-        for (index in 0 until entries.length()) {
-            val entry = entries.optJSONObject(index) ?: continue
-            val teamJson = entry.optJSONObject("team") ?: continue
-            val abbreviation = teamJson.optString("abbreviation").uppercase(Locale.US)
-            val team = teamsByAbbreviation[abbreviation] ?: continue
-            val stats = entry.optJSONArray("stats")
+        for (indice in 0 until entradas.length()) {
+            val entrada = entradas.optJSONObject(indice) ?: continue
+            val equipoJson = entrada.optJSONObject("team") ?: continue
+            val abreviatura = equipoJson.optString("abbreviation").uppercase(Locale.US)
+            val equipo = equiposPorAbreviatura[abreviatura] ?: continue
+            val estadisticas = entrada.optJSONArray("stats")
 
-            val wins = statInt(stats, "wins")
-            val losses = statInt(stats, "losses")
-            val pointsFor = statInt(stats, "pointsfor")
+            val victorias = estadisticaEntera(estadisticas, "wins")
+            val derrotas = estadisticaEntera(estadisticas, "losses")
+            val puntosFavor = estadisticaEntera(estadisticas, "pointsfor")
                 .takeIf { it > 0 }
-                ?: estimatedPointsFor(stats, wins + losses)
+                ?: estimarPuntosFavor(estadisticas, victorias + derrotas)
 
-            rawEntries += RawStandingEntry(
-                team = team,
-                leagueRank = index + 1,
-                wins = wins,
-                losses = losses,
-                points = pointsFor
+            entradasCrudas += EntradaClasificacionCruda(
+                team = equipo,
+                leagueRank = indice + 1,
+                wins = victorias,
+                losses = derrotas,
+                points = puntosFavor
             )
         }
 
-        val conferenceRanks = rawEntries
+        val rangosConferencia = entradasCrudas
             .groupBy { it.team.conference }
-            .flatMap { (_, conferenceTeams) ->
-                conferenceTeams
+            .flatMap { (_, equiposConferencia) ->
+                equiposConferencia
                     .sortedBy { it.leagueRank }
-                    .mapIndexed { index, item -> item.team.id to (index + 1) }
+                    .mapIndexed { indice, item -> item.team.id to (indice + 1) }
             }
             .toMap()
 
-        return rawEntries
+        return entradasCrudas
             .map { item ->
                 TeamStandingSummary(
                     team = item.team,
                     leagueRank = item.leagueRank,
-                    conferenceRank = conferenceRanks[item.team.id] ?: 0,
+                    conferenceRank = rangosConferencia[item.team.id] ?: 0,
                     points = item.points,
                     wins = item.wins,
                     losses = item.losses
@@ -96,35 +98,35 @@ object EspnTeamStandingsRepository {
             .sortedBy { it.team.fullName }
     }
 
-    private fun statInt(stats: org.json.JSONArray?, type: String): Int {
-        return statString(stats, type)?.toDoubleOrNull()?.roundToInt() ?: 0
+    private fun estadisticaEntera(estadisticas: org.json.JSONArray?, tipo: String): Int {
+        return estadisticaTexto(estadisticas, tipo)?.toDoubleOrNull()?.roundToInt() ?: 0
     }
 
-    private fun estimatedPointsFor(stats: org.json.JSONArray?, gamesPlayed: Int): Int {
-        val average = statString(stats, "avgpointsfor")?.toDoubleOrNull() ?: return 0
-        return (average * gamesPlayed).roundToInt()
+    private fun estimarPuntosFavor(estadisticas: org.json.JSONArray?, partidosJugados: Int): Int {
+        val promedio = estadisticaTexto(estadisticas, "avgpointsfor")?.toDoubleOrNull() ?: return 0
+        return (promedio * partidosJugados).roundToInt()
     }
 
-    private fun statString(stats: org.json.JSONArray?, type: String): String? {
-        if (stats == null) return null
-        for (i in 0 until stats.length()) {
-            val stat = stats.optJSONObject(i) ?: continue
-            if (!stat.optString("type").equals(type, ignoreCase = true)) continue
+    private fun estadisticaTexto(estadisticas: org.json.JSONArray?, tipo: String): String? {
+        if (estadisticas == null) return null
+        for (indice in 0 until estadisticas.length()) {
+            val estadistica = estadisticas.optJSONObject(indice) ?: continue
+            if (!estadistica.optString("type").equals(tipo, ignoreCase = true)) continue
 
-            val value = stat.opt("value")
-            if (value != null && value.toString().isNotBlank()) {
-                return value.toString()
+            val valor = estadistica.opt("value")
+            if (valor != null && valor.toString().isNotBlank()) {
+                return valor.toString()
             }
 
-            val summary = stat.optString("summary")
-            if (summary.isNotBlank()) {
-                return summary
+            val resumen = estadistica.optString("summary")
+            if (resumen.isNotBlank()) {
+                return resumen
             }
         }
         return null
     }
 
-    private data class RawStandingEntry(
+    private data class EntradaClasificacionCruda(
         val team: Team,
         val leagueRank: Int,
         val wins: Int,

@@ -52,17 +52,18 @@ import com.example.nba_salary_manager.viewmodel.NbaViewModel
 import java.text.SimpleDateFormat
 import java.util.Locale
 
+// Pantalla de partidos con filtros por fecha y listado cronologico.
 @Composable
 fun GamesScreen(viewModel: NbaViewModel, modifier: Modifier = Modifier) {
-    val games = viewModel.games
-    val isLoading = viewModel.gamesLoading
-    val error = viewModel.gamesError
-    val hasMore = viewModel.gamesHasMore
-    val selectedGameYear = viewModel.selectedGameYear
-    val selectedGameMonth = viewModel.selectedGameMonth
-    val availableGameYears = viewModel.availableGameYears
-    val availableGameMonths = viewModel.availableGameMonths
-    val hasActiveFilters = selectedGameYear != null || selectedGameMonth != null
+    val partidos = viewModel.partidos
+    val cargando = viewModel.cargandoPartidos
+    val mensajeError = viewModel.errorPartidos
+    val hayMasPartidos = viewModel.hayMasPartidos
+    val anioSeleccionado = viewModel.anioPartidosSeleccionado
+    val mesSeleccionado = viewModel.mesPartidosSeleccionado
+    val aniosDisponibles = viewModel.aniosPartidosDisponibles
+    val mesesDisponibles = viewModel.mesesPartidosDisponibles
+    val hayFiltrosActivos = anioSeleccionado != null || mesSeleccionado != null
 
     Column(modifier = modifier.fillMaxSize()) {
         Box(
@@ -83,7 +84,7 @@ fun GamesScreen(viewModel: NbaViewModel, modifier: Modifier = Modifier) {
                     color = Color.White
                 )
                 Text(
-                    headerSubtitle(selectedGameYear, selectedGameMonth),
+                    subtituloCabecera(anioSeleccionado, mesSeleccionado),
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color.White.copy(alpha = 0.85f)
                 )
@@ -91,18 +92,18 @@ fun GamesScreen(viewModel: NbaViewModel, modifier: Modifier = Modifier) {
         }
 
         GamesFilterSection(
-            selectedYear = selectedGameYear,
-            selectedMonth = selectedGameMonth,
-            availableYears = availableGameYears,
-            availableMonths = availableGameMonths,
-            hasActiveFilters = hasActiveFilters,
-            onYearSelected = viewModel::updateGameYearFilter,
-            onMonthSelected = viewModel::updateGameMonthFilter,
-            onClearFilters = viewModel::clearGameFilters
+            selectedYear = anioSeleccionado,
+            selectedMonth = mesSeleccionado,
+            availableYears = aniosDisponibles,
+            availableMonths = mesesDisponibles,
+            hasActiveFilters = hayFiltrosActivos,
+            onYearSelected = viewModel::actualizarFiltroAnioPartidos,
+            onMonthSelected = viewModel::actualizarFiltroMesPartidos,
+            onClearFilters = viewModel::limpiarFiltrosPartidos
         )
 
         when {
-            isLoading && games.isEmpty() -> {
+            cargando && partidos.isEmpty() -> {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         CircularProgressIndicator(color = Color(0xFF006BB6))
@@ -112,7 +113,7 @@ fun GamesScreen(viewModel: NbaViewModel, modifier: Modifier = Modifier) {
                 }
             }
 
-            error != null && games.isEmpty() -> {
+            mensajeError != null && partidos.isEmpty() -> {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -125,13 +126,13 @@ fun GamesScreen(viewModel: NbaViewModel, modifier: Modifier = Modifier) {
                         )
                         Spacer(Modifier.height(8.dp))
                         Text(
-                            error,
+                            mensajeError,
                             textAlign = TextAlign.Center,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Spacer(Modifier.height(16.dp))
                         Button(
-                            onClick = { viewModel.loadGames() },
+                            onClick = { viewModel.cargarPartidos() },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF006BB6))
                         ) {
                             Icon(Icons.Default.Refresh, contentDescription = null)
@@ -142,7 +143,7 @@ fun GamesScreen(viewModel: NbaViewModel, modifier: Modifier = Modifier) {
                 }
             }
 
-            games.isEmpty() && !isLoading -> {
+            partidos.isEmpty() && !cargando -> {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(
@@ -153,7 +154,7 @@ fun GamesScreen(viewModel: NbaViewModel, modifier: Modifier = Modifier) {
                         )
                         Spacer(Modifier.height(12.dp))
                         Text(
-                            emptyGamesMessage(hasActiveFilters),
+                            mensajePartidosVacio(hayFiltrosActivos),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center,
                             modifier = Modifier.padding(horizontal = 24.dp)
@@ -169,33 +170,33 @@ fun GamesScreen(viewModel: NbaViewModel, modifier: Modifier = Modifier) {
                 ) {
                     item {
                         Text(
-                            "Mostrando ${games.size} partidos",
+                            "Mostrando ${partidos.size} partidos",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
 
-                    items(games) { game ->
-                        GameCard(game)
+                    items(partidos) { partido ->
+                        GameCard(partido)
                     }
 
-                    if (hasMore && !isLoading) {
+                    if (hayMasPartidos && !cargando) {
                         item {
                             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                                 OutlinedButton(
-                                    onClick = { viewModel.loadMoreGames() },
+                                    onClick = { viewModel.cargarMasPartidos() },
                                     modifier = Modifier.padding(8.dp),
                                     colors = ButtonDefaults.outlinedButtonColors(
                                         contentColor = Color(0xFF006BB6)
                                     )
                                 ) {
-                                    Text("Cargar mas partidos")
+                                    Text("Cargar más partidos")
                                 }
                             }
                         }
                     }
 
-                    if (isLoading) {
+                    if (cargando) {
                         item {
                             Box(
                                 modifier = Modifier
@@ -216,12 +217,13 @@ fun GamesScreen(viewModel: NbaViewModel, modifier: Modifier = Modifier) {
     }
 
     LaunchedEffect(Unit) {
-        if (!isLoading && games.isEmpty() && error == null) {
-            viewModel.loadGames()
+        if (!cargando && partidos.isEmpty() && mensajeError == null) {
+            viewModel.cargarPartidos()
         }
     }
 }
 
+// Controles superiores para acotar la consulta por anio y mes.
 @Composable
 private fun GamesFilterSection(
     selectedYear: Int?,
@@ -280,6 +282,7 @@ private fun GamesFilterSection(
     }
 }
 
+// Selector reutilizable para filtros numericos como mes o anio.
 @Composable
 private fun IntFilterDropdown(
     modifier: Modifier = Modifier,
@@ -289,11 +292,11 @@ private fun IntFilterDropdown(
     valueLabel: (Int) -> String,
     onValueSelected: (Int?) -> Unit
 ) {
-    var expanded by remember { mutableStateOf(false) }
+    var expandido by remember { mutableStateOf(false) }
 
     Box(modifier = modifier) {
         OutlinedButton(
-            onClick = { expanded = true },
+            onClick = { expandido = true },
             modifier = Modifier.fillMaxWidth(),
             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp)
         ) {
@@ -316,14 +319,14 @@ private fun IntFilterDropdown(
         }
 
         DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false }
+            expanded = expandido,
+            onDismissRequest = { expandido = false }
         ) {
             DropdownMenuItem(
                 text = { Text("Todos") },
                 onClick = {
                     onValueSelected(null)
-                    expanded = false
+                    expandido = false
                 }
             )
 
@@ -332,7 +335,7 @@ private fun IntFilterDropdown(
                     text = { Text(valueLabel(value)) },
                     onClick = {
                         onValueSelected(value)
-                        expanded = false
+                        expandido = false
                     }
                 )
             }
@@ -340,20 +343,21 @@ private fun IntFilterDropdown(
     }
 }
 
-private fun headerSubtitle(selectedYear: Int?, selectedMonth: Int?): String {
+// Genera un subtitulo legible segun los filtros activos.
+private fun subtituloCabecera(selectedYear: Int?, selectedMonth: Int?): String {
     return when {
         selectedYear != null && selectedMonth != null -> "${monthLabel(selectedMonth)} de $selectedYear"
-        selectedYear != null -> "Partidos del anio $selectedYear"
-        selectedMonth != null -> "${monthLabel(selectedMonth)} del anio actual"
-        else -> "Ultimo mes y proximos 7 dias"
+        selectedYear != null -> "Partidos del año $selectedYear"
+        selectedMonth != null -> "${monthLabel(selectedMonth)} del año actual"
+        else -> "Último mes y próximos 7 días"
     }
 }
 
-private fun emptyGamesMessage(hasActiveFilters: Boolean): String {
+private fun mensajePartidosVacio(hasActiveFilters: Boolean): String {
     return if (hasActiveFilters) {
         "No hay partidos para el filtro seleccionado"
     } else {
-        "No hay partidos en el ultimo mes ni en los proximos 7 dias"
+        "No hay partidos en el último mes ni en los próximos 7 días"
     }
 }
 
@@ -375,28 +379,30 @@ private fun monthLabel(month: Int): String {
     }
 }
 
+// Convierte la fecha ISO en un formato corto y facil de leer.
 private fun formatGameDate(dateString: String?): String {
     if (dateString == null) return ""
     return try {
-        val cleanDate = if (dateString.contains("T")) dateString.split("T")[0] else dateString
-        cleanDate.replace("-", "/")
+        val fechaLimpia = if (dateString.contains("T")) dateString.split("T")[0] else dateString
+        fechaLimpia.replace("-", "/")
     } catch (_: Exception) {
         dateString.replace("-", "/")
     }
 }
 
+// Intenta normalizar horas aunque la API mezcle estados y formatos distintos.
 private fun formatGameTime(status: String?): String {
     if (status == null) return ""
     return try {
         if (status.contains("T") && status.contains("Z")) {
             status.split("T")[1].substring(0, 5)
         } else if (status.contains("AM", ignoreCase = true) || status.contains("PM", ignoreCase = true)) {
-            val timePart = status.split(" ")[0]
-            val amPm = if (status.contains("PM", ignoreCase = true)) "PM" else "AM"
-            val inputFormat = SimpleDateFormat("h:mm a", Locale.US)
-            val outputFormat = SimpleDateFormat("HH:mm", Locale.US)
-            val date = inputFormat.parse("$timePart $amPm")
-            date?.let { outputFormat.format(it) } ?: status
+            val parteHora = status.split(" ")[0]
+            val indicadorAmPm = if (status.contains("PM", ignoreCase = true)) "PM" else "AM"
+            val formatoEntrada = SimpleDateFormat("h:mm a", Locale.US)
+            val formatoSalida = SimpleDateFormat("HH:mm", Locale.US)
+            val fecha = formatoEntrada.parse("$parteHora $indicadorAmPm")
+            fecha?.let { formatoSalida.format(it) } ?: status
         } else {
             status
         }
@@ -405,9 +411,10 @@ private fun formatGameTime(status: String?): String {
     }
 }
 
+// Tarjeta visual de cada partido con resultado, estado y equipos enfrentados.
 @Composable
 private fun GameCard(game: Game) {
-    val statusColor = when {
+    val colorEstado = when {
         game.status.contains("Final", ignoreCase = true) -> Color(0xFF2E7D32)
         game.status.contains("progress", ignoreCase = true) ||
             (game.period != null && game.period > 0 && !game.status.contains("Final", ignoreCase = true)) -> Color(0xFFED174C)
@@ -435,14 +442,14 @@ private fun GameCard(game: Game) {
                 )
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    color = statusColor.copy(alpha = 0.15f)
+                    color = colorEstado.copy(alpha = 0.15f)
                 ) {
                     Text(
                         formatGameTime(game.status),
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
-                        color = statusColor
+                        color = colorEstado
                     )
                 }
             }
@@ -459,10 +466,10 @@ private fun GameCard(game: Game) {
                     modifier = Modifier.weight(1f)
                 ) {
                     TeamLogo(
-                        abbreviation = game.homeTeam.abbreviation,
-                        teamName = game.homeTeam.fullName,
+                        abreviatura = game.homeTeam.abbreviation,
+                        nombreEquipo = game.homeTeam.fullName,
                         modifier = Modifier.size(40.dp),
-                        fallbackColor = Color(0xFF006BB6)
+                        colorRespaldo = Color(0xFF006BB6)
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
@@ -515,7 +522,7 @@ private fun GameCard(game: Game) {
                             modifier = Modifier.padding(top = 4.dp)
                         ) {
                             Text(
-                                "PLAYOFFS",
+                                "Eliminatorias",
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
@@ -530,10 +537,10 @@ private fun GameCard(game: Game) {
                     modifier = Modifier.weight(1f)
                 ) {
                     TeamLogo(
-                        abbreviation = game.visitorTeam.abbreviation,
-                        teamName = game.visitorTeam.fullName,
+                        abreviatura = game.visitorTeam.abbreviation,
+                        nombreEquipo = game.visitorTeam.fullName,
                         modifier = Modifier.size(40.dp),
-                        fallbackColor = Color(0xFFED174C)
+                        colorRespaldo = Color(0xFFED174C)
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(

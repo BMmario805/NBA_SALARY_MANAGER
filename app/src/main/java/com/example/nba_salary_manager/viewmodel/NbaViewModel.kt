@@ -35,147 +35,152 @@ import java.util.Locale
 
 class NbaViewModel(private val appContext: Context) : ViewModel() {
 
-    private val rosterTemplatesCatalog = RosterTemplateRepository.templates
-    private val cachePreferences = appContext.getSharedPreferences("nba_cache", Context.MODE_PRIVATE)
+    private val catalogoPlantillas = RosterTemplateRepository.templates
+    private val preferenciasCache = appContext.getSharedPreferences("nba_cache", Context.MODE_PRIVATE)
     private val gson = Gson()
 
     // ── Teams state ──
-    var teams by mutableStateOf<List<Team>>(emptyList())
+    // Estado que alimenta la pantalla de equipos y su clasificacion.
+    var equipos by mutableStateOf<List<Team>>(emptyList())
         private set
-    var teamsLoading by mutableStateOf(false)
+    var cargandoEquipos by mutableStateOf(false)
         private set
-    var teamsError by mutableStateOf<String?>(null)
+    var errorEquipos by mutableStateOf<String?>(null)
         private set
-    var teamStatsLoading by mutableStateOf(false)
+    var cargandoEstadisticasEquipos by mutableStateOf(false)
         private set
-    var teamStatsError by mutableStateOf<String?>(null)
+    var errorEstadisticasEquipos by mutableStateOf<String?>(null)
         private set
-    var teamStandings by mutableStateOf<List<TeamStandingSummary>>(emptyList())
+    var clasificacionEquipos by mutableStateOf<List<TeamStandingSummary>>(emptyList())
         private set
 
     // ── Players state ──
-    var players by mutableStateOf<List<Player>>(emptyList())
+    // Estado para busqueda, orden y detalle estadistico de jugadores.
+    var jugadores by mutableStateOf<List<Player>>(emptyList())
         private set
-    var playersLoading by mutableStateOf(false)
+    var cargandoJugadores by mutableStateOf(false)
         private set
-    var playersError by mutableStateOf<String?>(null)
+    var errorJugadores by mutableStateOf<String?>(null)
         private set
-    var playerSearchQuery by mutableStateOf("")
+    var busquedaJugador by mutableStateOf("")
         private set
-    var playersNextCursor by mutableStateOf<Int?>(null)
+    var cursorSiguienteJugadores by mutableStateOf<Int?>(null)
         private set
-    var playersHasMore by mutableStateOf(true)
+    var hayMasJugadores by mutableStateOf(true)
         private set
-    var playerStatsStates by mutableStateOf<Map<Int, PlayerStatsUiState>>(emptyMap())
+    var estadosEstadisticasJugadores by mutableStateOf<Map<Int, PlayerStatsUiState>>(emptyMap())
         private set
-    var selectedPlayerPositionFilter by mutableStateOf(PlayerPositionFilter.ALL)
+    var filtroPosicionJugadorSeleccionado by mutableStateOf(PlayerPositionFilter.ALL)
         private set
-    var selectedPlayerSortOption by mutableStateOf(PlayerSortOption.NAME)
+    var ordenJugadorSeleccionado by mutableStateOf(PlayerSortOption.NAME)
         private set
-    var seasonLeaderboardStats by mutableStateOf<Map<Int, PlayerSeasonStats>>(emptyMap())
+    var estadisticasRankingTemporada by mutableStateOf<Map<Int, PlayerSeasonStats>>(emptyMap())
         private set
-    private var seasonLeaderboardPlayers by mutableStateOf<List<Player>>(emptyList())
-    private var seasonLeaderboardSeason by mutableStateOf<Int?>(null)
+    private var jugadoresRankingTemporada by mutableStateOf<List<Player>>(emptyList())
+    private var temporadaRankingTemporada by mutableStateOf<Int?>(null)
 
     // ── Games state ──
-    var games by mutableStateOf<List<Game>>(emptyList())
+    // Estado para filtros y paginacion de partidos.
+    var partidos by mutableStateOf<List<Game>>(emptyList())
         private set
-    var gamesLoading by mutableStateOf(false)
+    var cargandoPartidos by mutableStateOf(false)
         private set
-    var gamesError by mutableStateOf<String?>(null)
+    var errorPartidos by mutableStateOf<String?>(null)
         private set
-    var gamesNextCursor by mutableStateOf<Int?>(null)
+    var cursorSiguientePartidos by mutableStateOf<Int?>(null)
         private set
-    var gamesHasMore by mutableStateOf(true)
+    var hayMasPartidos by mutableStateOf(true)
         private set
-    var selectedGameYear by mutableStateOf<Int?>(null)
+    var anioPartidosSeleccionado by mutableStateOf<Int?>(null)
         private set
-    var selectedGameMonth by mutableStateOf<Int?>(null)
+    var mesPartidosSeleccionado by mutableStateOf<Int?>(null)
         private set
 
-    var selectedRosterCategory by mutableStateOf(RosterTemplateCategory.CURRENT)
+    var categoriaPlantillaSeleccionada by mutableStateOf(RosterTemplateCategory.CURRENT)
         private set
-    var activeRosterTemplateId by mutableStateOf(rosterTemplatesCatalog.firstOrNull()?.id)
+    var idPlantillaActiva by mutableStateOf(catalogoPlantillas.firstOrNull()?.id)
         private set
-    var editableRosterName by mutableStateOf(rosterTemplatesCatalog.firstOrNull()?.teamName.orEmpty())
+    var nombrePlantillaEditable by mutableStateOf(catalogoPlantillas.firstOrNull()?.teamName.orEmpty())
         private set
-    var editableRosterPlayStyle by mutableStateOf(rosterTemplatesCatalog.firstOrNull()?.playStyle.orEmpty())
+    var estiloPlantillaEditable by mutableStateOf(catalogoPlantillas.firstOrNull()?.playStyle.orEmpty())
         private set
-    var editableRosterPlayers by mutableStateOf(
-        rosterTemplatesCatalog.firstOrNull()?.players ?: emptyList()
+    var jugadoresPlantillaEditable by mutableStateOf(
+        catalogoPlantillas.firstOrNull()?.jugadores ?: emptyList()
     )
         private set
-    var replacementCandidates by mutableStateOf<List<ReplacementCandidate>>(emptyList())
+    var candidatosReemplazo by mutableStateOf<List<ReplacementCandidate>>(emptyList())
         private set
-    var replacementCandidatesLoading by mutableStateOf(false)
+    var cargandoCandidatosReemplazo by mutableStateOf(false)
         private set
-    var replacementCandidatesError by mutableStateOf<String?>(null)
+    var errorCandidatosReemplazo by mutableStateOf<String?>(null)
         private set
-    var replacementTargetStats by mutableStateOf<PlayerSeasonStats?>(null)
+    var estadisticasObjetivoReemplazo by mutableStateOf<PlayerSeasonStats?>(null)
         private set
-    var replacementTargetPosition by mutableStateOf("")
+    var posicionObjetivoReemplazo by mutableStateOf("")
         private set
 
-    private val api = RetrofitClient.api
-    private val playersCacheDurationMs = 1000L * 60L * 30L
+    private val servicioApi = RetrofitClient.servicioApi
+    private val duracionCacheJugadoresMs = 1000L * 60L * 30L
 
-    val rosterTemplates: List<RosterTemplate>
-        get() = rosterTemplatesCatalog
+    val plantillasBase: List<RosterTemplate>
+        get() = catalogoPlantillas
 
-    val filteredRosterTemplates: List<RosterTemplate>
-        get() = rosterTemplatesCatalog.filter { it.category == selectedRosterCategory }
+    val plantillasFiltradas: List<RosterTemplate>
+        get() = catalogoPlantillas.filter { it.category == categoriaPlantillaSeleccionada }
 
-    val activeRosterTemplate: RosterTemplate?
-        get() = rosterTemplatesCatalog.firstOrNull { it.id == activeRosterTemplateId }
+    val plantillaActiva: RosterTemplate?
+        get() = catalogoPlantillas.firstOrNull { it.id == idPlantillaActiva }
 
-    val availableGameYears: List<Int>
+    val aniosPartidosDisponibles: List<Int>
         get() = (Calendar.getInstance().get(Calendar.YEAR) downTo 1970).toList()
 
-    val availableGameMonths: List<Int>
+    val mesesPartidosDisponibles: List<Int>
         get() = (1..12).toList()
 
-    val visiblePlayers: List<Player>
-        get() = playerSourceForCurrentMode()
-            .filter { player -> selectedPlayerPositionFilter.matches(player.position) }
-            .sortedWith(playerComparator(selectedPlayerSortOption))
+    val jugadoresVisibles: List<Player>
+        get() = fuenteJugadoresModoActual()
+            .filter { jugador -> filtroPosicionJugadorSeleccionado.matches(jugador.position) }
+            .sortedWith(comparadorJugadores(ordenJugadorSeleccionado))
 
-    val canLoadMorePlayers: Boolean
-        get() = !shouldUseSeasonLeaderboard() && playersHasMore
+    val puedeCargarMasJugadores: Boolean
+        get() = !debeUsarRankingTemporada() && hayMasJugadores
 
-    fun updateRosterCategory(category: RosterTemplateCategory) {
-        selectedRosterCategory = category
+    fun actualizarCategoriaPlantilla(categoria: RosterTemplateCategory) {
+        categoriaPlantillaSeleccionada = categoria
     }
 
-    fun useRosterTemplate(templateId: String) {
-        val template = rosterTemplatesCatalog.firstOrNull { it.id == templateId } ?: return
-        activeRosterTemplateId = template.id
-        selectedRosterCategory = template.category
-        editableRosterName = template.teamName
-        editableRosterPlayStyle = template.playStyle
-        editableRosterPlayers = template.players.map { it.copy() }
-        clearReplacementCandidates()
+    // Copia la plantilla elegida al editor para poder ajustarla sin tocar la base.
+    fun usarPlantillaBase(idPlantilla: String) {
+        val plantilla = catalogoPlantillas.firstOrNull { it.id == idPlantilla } ?: return
+        idPlantillaActiva = plantilla.id
+        categoriaPlantillaSeleccionada = plantilla.category
+        nombrePlantillaEditable = plantilla.teamName
+        estiloPlantillaEditable = plantilla.playStyle
+        jugadoresPlantillaEditable = plantilla.jugadores.map { it.copy() }
+        limpiarCandidatosReemplazo()
     }
 
-    fun updateEditableRosterName(name: String) {
-        editableRosterName = name
+    fun actualizarNombrePlantillaEditable(nombre: String) {
+        nombrePlantillaEditable = nombre
     }
 
-    fun updateEditableRosterPlayStyle(style: String) {
-        editableRosterPlayStyle = style
+    fun actualizarEstiloPlantillaEditable(estilo: String) {
+        estiloPlantillaEditable = estilo
     }
 
-    fun updateEditableRosterPlayer(
+    fun actualizarJugadorPlantillaEditable(
         index: Int,
         transform: (RosterPlayerTemplate) -> RosterPlayerTemplate
     ) {
-        if (index !in editableRosterPlayers.indices) return
-        val updatedPlayers = editableRosterPlayers.toMutableList()
-        updatedPlayers[index] = transform(updatedPlayers[index])
-        editableRosterPlayers = updatedPlayers
+        if (index !in jugadoresPlantillaEditable.indices) return
+        val jugadoresActualizados = jugadoresPlantillaEditable.toMutableList()
+        jugadoresActualizados[index] = transform(jugadoresActualizados[index])
+        jugadoresPlantillaEditable = jugadoresActualizados
     }
 
-    fun addEditableRosterPlayer() {
-        editableRosterPlayers = editableRosterPlayers + RosterPlayerTemplate(
+    // Anade un hueco vacio para construir una plantilla personalizada desde cero.
+    fun agregarJugadorPlantillaEditable() {
+        jugadoresPlantillaEditable = jugadoresPlantillaEditable + RosterPlayerTemplate(
             name = "",
             position = "",
             role = "Rotacion",
@@ -184,391 +189,404 @@ class NbaViewModel(private val appContext: Context) : ViewModel() {
         )
     }
 
-    fun removeEditableRosterPlayer(index: Int) {
-        if (index !in editableRosterPlayers.indices) return
-        editableRosterPlayers = editableRosterPlayers.filterIndexed { currentIndex, _ ->
+    fun eliminarJugadorPlantillaEditable(index: Int) {
+        if (index !in jugadoresPlantillaEditable.indices) return
+        jugadoresPlantillaEditable = jugadoresPlantillaEditable.filterIndexed { currentIndex, _ ->
             currentIndex != index
         }
     }
 
-    fun clearReplacementCandidates() {
-        replacementCandidates = emptyList()
-        replacementCandidatesLoading = false
-        replacementCandidatesError = null
-        replacementTargetStats = null
-        replacementTargetPosition = ""
+    fun limpiarCandidatosReemplazo() {
+        candidatosReemplazo = emptyList()
+        cargandoCandidatosReemplazo = false
+        errorCandidatosReemplazo = null
+        estadisticasObjetivoReemplazo = null
+        posicionObjetivoReemplazo = ""
     }
 
-    fun loadReplacementCandidates(target: RosterPlayerTemplate) {
+    // Busca jugadores reales que se parezcan al perfil del hueco seleccionado.
+    fun cargarCandidatosReemplazo(jugadorObjetivo: RosterPlayerTemplate) {
         viewModelScope.launch {
-            replacementCandidatesLoading = true
-            replacementCandidatesError = null
-            replacementCandidates = emptyList()
-            replacementTargetPosition = target.position
+            cargandoCandidatosReemplazo = true
+            errorCandidatosReemplazo = null
+            candidatosReemplazo = emptyList()
+            posicionObjetivoReemplazo = jugadorObjetivo.position
 
             try {
-                val targetPlayer = rosterTemplateToPlayer(target)
-                replacementTargetStats = targetPlayer?.let { EspnPlayerStatsRepository.getPlayerSeasonStats(it) }
-                val pool = fetchReplacementPool(target)
-                replacementCandidates = rankReplacementCandidates(
-                    target = target,
-                    targetStats = replacementTargetStats,
-                    pool = pool
+                val jugadorBase = plantillaAJugador(jugadorObjetivo)
+                estadisticasObjetivoReemplazo =
+                    jugadorBase?.let { EspnPlayerStatsRepository.getPlayerSeasonStats(it) }
+                val grupoJugadores = obtenerGrupoReemplazo(jugadorObjetivo)
+                candidatosReemplazo = ordenarCandidatosReemplazo(
+                    jugadorObjetivo = jugadorObjetivo,
+                    estadisticasObjetivo = estadisticasObjetivoReemplazo,
+                    grupoJugadores = grupoJugadores
                 )
 
-                if (replacementCandidates.isEmpty()) {
-                    replacementCandidatesError = "No se encontraron candidatos similares para ${target.position}."
+                if (candidatosReemplazo.isEmpty()) {
+                    errorCandidatosReemplazo =
+                        "No se encontraron candidatos similares para ${jugadorObjetivo.position}."
                 }
             } catch (e: Exception) {
-                replacementCandidatesError = e.message ?: "Error buscando reemplazos"
+                errorCandidatosReemplazo = e.message ?: "Error buscando reemplazos"
             }
 
-            replacementCandidatesLoading = false
+            cargandoCandidatosReemplazo = false
         }
     }
 
-    fun replaceEditableRosterPlayer(index: Int, player: Player) {
-        updateEditableRosterPlayer(index) { current ->
-            current.copy(
-                name = "${player.firstName} ${player.lastName}",
-                nbaPlayerId = player.id,
-                position = current.position
+    fun reemplazarJugadorPlantillaEditable(index: Int, jugador: Player) {
+        actualizarJugadorPlantillaEditable(index) { actual ->
+            actual.copy(
+                name = "${jugador.firstName} ${jugador.lastName}",
+                nbaPlayerId = jugador.id,
+                position = actual.position
             )
         }
     }
 
-    fun loadEditableRosterStats(forceRefresh: Boolean = false) {
-        editableRosterPlayers.forEach { player ->
-            loadRosterPlayerStats(player, forceRefresh = forceRefresh)
+    fun cargarEstadisticasPlantillaEditable(forzarRecarga: Boolean = false) {
+        jugadoresPlantillaEditable.forEach { jugador ->
+            cargarEstadisticasJugadorPlantilla(jugador, forzarRecarga = forzarRecarga)
         }
     }
 
-    fun loadRosterPlayerStats(player: RosterPlayerTemplate, forceRefresh: Boolean = false) {
-        val rosterPlayer = rosterTemplateToPlayer(player) ?: return
-        loadPlayerStats(rosterPlayer, forceRefresh = forceRefresh)
+    fun cargarEstadisticasJugadorPlantilla(
+        jugador: RosterPlayerTemplate,
+        forzarRecarga: Boolean = false
+    ) {
+        val jugadorPlantilla = plantillaAJugador(jugador) ?: return
+        cargarEstadisticasJugador(jugadorPlantilla, forzarRecarga = forzarRecarga)
     }
 
-    fun rosterPlayerStatsState(player: RosterPlayerTemplate): PlayerStatsUiState {
-        val rosterPlayer = rosterTemplateToPlayer(player) ?: return PlayerStatsUiState()
-        return playerStatsState(rosterPlayer.id)
+    fun estadoEstadisticasJugadorPlantilla(jugador: RosterPlayerTemplate): PlayerStatsUiState {
+        val jugadorPlantilla = plantillaAJugador(jugador) ?: return PlayerStatsUiState()
+        return estadoEstadisticasJugador(jugadorPlantilla.id)
     }
 
     // ── Teams ──
 
-    fun loadTeams() {
-        if (teamsLoading) return
+    // Carga la lista base de equipos y reinicia la clasificacion derivada.
+    fun cargarEquipos() {
+        if (cargandoEquipos) return
 
         viewModelScope.launch {
-            teamsLoading = true
-            teamsError = null
-            teamStatsLoading = false
-            teamStatsError = null
+            cargandoEquipos = true
+            errorEquipos = null
+            cargandoEstadisticasEquipos = false
+            errorEstadisticasEquipos = null
             try {
-                val response = api.getTeams()
-                val loadedTeams = response.data
+                val respuesta = servicioApi.obtenerEquipos()
+                val equiposCargados = respuesta.data
                     .filter { it.abbreviation in currentNbaTeamAbbreviations }
                     .distinctBy { it.id }
                     .sortedBy { it.fullName }
-                teams = loadedTeams
-                teamStandings = emptyList()
+                equipos = equiposCargados
+                clasificacionEquipos = emptyList()
             } catch (e: Exception) {
-                teamsError = apiErrorMessage(e, "Error desconocido al cargar equipos")
-                teamStandings = emptyList()
+                errorEquipos = mensajeErrorApi(e, "Error desconocido al cargar equipos")
+                clasificacionEquipos = emptyList()
             }
-            teamsLoading = false
+            cargandoEquipos = false
         }
     }
 
-    fun loadTeamStandingsIfNeeded() {
-        if (teamStatsLoading || teamStandings.isNotEmpty() || teams.isEmpty()) return
+    fun cargarClasificacionEquiposSiHaceFalta() {
+        if (cargandoEstadisticasEquipos || clasificacionEquipos.isNotEmpty() || equipos.isEmpty()) return
 
         viewModelScope.launch {
-            teamStatsLoading = true
-            teamStatsError = null
+            cargandoEstadisticasEquipos = true
+            errorEstadisticasEquipos = null
             try {
-                teamStandings = EspnTeamStandingsRepository.getTeamStandings(
-                    seasonYear = currentEspnSeason(),
-                    teams = teams
+                clasificacionEquipos = EspnTeamStandingsRepository.obtenerClasificacionEquipos(
+                    anioTemporada = temporadaEspnActual(),
+                    equipos = equipos
                 )
             } catch (e: Exception) {
-                teamStatsError = apiErrorMessage(e, "Error desconocido al cargar estadisticas de equipos")
-                teamStandings = emptyList()
+                errorEstadisticasEquipos = mensajeErrorApi(e, "Error desconocido al cargar estadisticas de equipos")
+                clasificacionEquipos = emptyList()
             }
-            teamStatsLoading = false
+            cargandoEstadisticasEquipos = false
         }
     }
 
     // ── Players ──
 
-    fun updatePlayerSearch(query: String) {
-        playerSearchQuery = query
+    // Mantiene sincronizada la consulta de texto usada por la pantalla de jugadores.
+    fun actualizarBusquedaJugador(consulta: String) {
+        busquedaJugador = consulta
     }
 
-    fun updatePlayerPositionFilter(filter: PlayerPositionFilter) {
-        selectedPlayerPositionFilter = filter
-        prefetchSortedPlayerStats()
+    fun actualizarFiltroPosicionJugador(filtro: PlayerPositionFilter) {
+        filtroPosicionJugadorSeleccionado = filtro
+        precargarEstadisticasSegunOrden()
     }
 
-    fun updatePlayerSortOption(sortOption: PlayerSortOption) {
-        selectedPlayerSortOption = sortOption
-        prefetchSortedPlayerStats()
+    fun actualizarOrdenJugador(criterioOrden: PlayerSortOption) {
+        ordenJugadorSeleccionado = criterioOrden
+        precargarEstadisticasSegunOrden()
     }
 
-    fun playerSummaryForSorting(playerId: Int): PlayerSeasonStats? {
-        return seasonLeaderboardStats[playerId] ?: playerStatsStates[playerId]?.summary
+    fun resumenJugadorParaOrdenar(idJugador: Int): PlayerSeasonStats? {
+        return estadisticasRankingTemporada[idJugador] ?: estadosEstadisticasJugadores[idJugador]?.summary
     }
 
-    fun searchPlayers() {
-        if (shouldUseSeasonLeaderboard()) {
-            loadSeasonLeaderboard(forceRefresh = true)
+    // Decide si usa cache local, ranking agregado o consulta directa a la API.
+    fun buscarJugadores() {
+        if (debeUsarRankingTemporada()) {
+            cargarRankingTemporada(forzarRecarga = true)
             return
         }
-        if (playersLoading) return
-        val query = playerSearchQuery.trim()
-        val cachedPage = readCachedPlayersPage(query)
-        if (cachedPage != null && isCacheFresh(cachedPage)) {
-            players = cachedPage.players.sortedByDescending { it.id }
-            playersNextCursor = cachedPage.nextCursor
-            playersHasMore = cachedPage.nextCursor != null
-            playersError = null
-            prefetchSortedPlayerStats()
+        if (cargandoJugadores) return
+        val consulta = busquedaJugador.trim()
+        val paginaCache = leerPaginaJugadoresCache(consulta)
+        if (paginaCache != null && cacheSigueVigente(paginaCache)) {
+            jugadores = paginaCache.jugadores.sortedByDescending { it.id }
+            cursorSiguienteJugadores = paginaCache.nextCursor
+            hayMasJugadores = paginaCache.nextCursor != null
+            errorJugadores = null
+            precargarEstadisticasSegunOrden()
             return
         }
 
         viewModelScope.launch {
-            playersLoading = true
-            playersError = null
-            playersNextCursor = null
-            playersHasMore = true
+            cargandoJugadores = true
+            errorJugadores = null
+            cursorSiguienteJugadores = null
+            hayMasJugadores = true
             try {
-                val response = api.getPlayers(
-                    search = query.ifBlank { null },
+                val respuesta = servicioApi.obtenerJugadores(
+                    search = consulta.ifBlank { null },
                     perPage = 15
                 )
-                players = response.data.sortedByDescending { it.id }
-                playersNextCursor = response.meta?.nextCursor
-                playersHasMore = response.meta?.nextCursor != null
-                cachePlayersPage(
-                    query = query,
-                    players = players,
-                    nextCursor = playersNextCursor
+                jugadores = respuesta.data.sortedByDescending { it.id }
+                cursorSiguienteJugadores = respuesta.meta?.nextCursor
+                hayMasJugadores = respuesta.meta?.nextCursor != null
+                guardarPaginaJugadoresCache(
+                    consulta = consulta,
+                    jugadores = jugadores,
+                    nextCursor = cursorSiguienteJugadores
                 )
-                prefetchSortedPlayerStats()
+                precargarEstadisticasSegunOrden()
             } catch (e: Exception) {
-                if (cachedPage != null) {
-                    players = cachedPage.players.sortedByDescending { it.id }
-                    playersNextCursor = cachedPage.nextCursor
-                    playersHasMore = cachedPage.nextCursor != null
-                    playersError = null
-                    prefetchSortedPlayerStats()
+                if (paginaCache != null) {
+                    jugadores = paginaCache.jugadores.sortedByDescending { it.id }
+                    cursorSiguienteJugadores = paginaCache.nextCursor
+                    hayMasJugadores = paginaCache.nextCursor != null
+                    errorJugadores = null
+                    precargarEstadisticasSegunOrden()
                 } else {
-                    playersError = apiErrorMessage(e, "Error desconocido al cargar jugadores")
+                    errorJugadores = mensajeErrorApi(e, "Error desconocido al cargar jugadores")
                 }
             }
-            playersLoading = false
+            cargandoJugadores = false
         }
     }
 
-    fun loadPlayers() {
-        searchPlayers()
+    fun cargarJugadores() {
+        buscarJugadores()
     }
 
-    fun loadMorePlayers() {
-        if (shouldUseSeasonLeaderboard()) return
-        val cursor = playersNextCursor ?: return
-        if (playersLoading) return
+    fun cargarMasJugadores() {
+        if (debeUsarRankingTemporada()) return
+        val cursor = cursorSiguienteJugadores ?: return
+        if (cargandoJugadores) return
         viewModelScope.launch {
-            playersLoading = true
+            cargandoJugadores = true
             try {
-                val response = api.getPlayers(
-                    search = playerSearchQuery.ifBlank { null },
+                val respuesta = servicioApi.obtenerJugadores(
+                    search = busquedaJugador.ifBlank { null },
                     perPage = 15,
                     cursor = cursor
                 )
-                players = (players + response.data).sortedByDescending { it.id }
-                playersNextCursor = response.meta?.nextCursor
-                playersHasMore = response.meta?.nextCursor != null
-                cachePlayersPage(
-                    query = playerSearchQuery.trim(),
-                    players = players,
-                    nextCursor = playersNextCursor
+                jugadores = (jugadores + respuesta.data).sortedByDescending { it.id }
+                cursorSiguienteJugadores = respuesta.meta?.nextCursor
+                hayMasJugadores = respuesta.meta?.nextCursor != null
+                guardarPaginaJugadoresCache(
+                    consulta = busquedaJugador.trim(),
+                    jugadores = jugadores,
+                    nextCursor = cursorSiguienteJugadores
                 )
-                prefetchSortedPlayerStats()
+                precargarEstadisticasSegunOrden()
             } catch (e: Exception) {
-                playersError = e.message ?: "Error cargando más jugadores"
+                errorJugadores = e.message ?: "Error cargando mas jugadores"
             }
-            playersLoading = false
+            cargandoJugadores = false
         }
     }
 
     // ── Games ──
 
-    fun updateGameYearFilter(year: Int?) {
-        selectedGameYear = year
-        loadGames()
+    // Actualiza la ventana temporal de partidos segun los filtros activos.
+    fun actualizarFiltroAnioPartidos(anio: Int?) {
+        anioPartidosSeleccionado = anio
+        cargarPartidos()
     }
 
-    fun updateGameMonthFilter(month: Int?) {
-        if (month == null) {
-            selectedGameMonth = null
-            selectedGameYear = null
+    fun actualizarFiltroMesPartidos(mes: Int?) {
+        if (mes == null) {
+            mesPartidosSeleccionado = null
+            anioPartidosSeleccionado = null
         } else {
-            selectedGameMonth = month
-            if (selectedGameYear == null) {
-                selectedGameYear = Calendar.getInstance().get(Calendar.YEAR)
+            mesPartidosSeleccionado = mes
+            if (anioPartidosSeleccionado == null) {
+                anioPartidosSeleccionado = Calendar.getInstance().get(Calendar.YEAR)
             }
         }
-        loadGames()
+        cargarPartidos()
     }
 
-    fun clearGameFilters() {
-        selectedGameYear = null
-        selectedGameMonth = null
-        loadGames()
+    fun limpiarFiltrosPartidos() {
+        anioPartidosSeleccionado = null
+        mesPartidosSeleccionado = null
+        cargarPartidos()
     }
 
-    fun loadGames() {
-        if (gamesLoading) return
+    // Consulta los partidos visibles en pantalla usando el rango ya calculado.
+    fun cargarPartidos() {
+        if (cargandoPartidos) return
 
         viewModelScope.launch {
-            gamesLoading = true
-            gamesError = null
-            gamesNextCursor = null
-            gamesHasMore = true
-            games = emptyList()
+            cargandoPartidos = true
+            errorPartidos = null
+            cursorSiguientePartidos = null
+            hayMasPartidos = true
+            partidos = emptyList()
             try {
-                val (startDate, endDate) = getGamesDateRange()
+                val (fechaInicio, fechaFin) = obtenerRangoFechasPartidos()
 
-                val response = api.getGames(
+                val respuesta = servicioApi.obtenerPartidos(
                     perPage = 50,
-                    startDate = startDate,
-                    endDate = endDate
+                    startDate = fechaInicio,
+                    endDate = fechaFin
                 )
-                games = response.data.sortedBy { it.date }
-                gamesNextCursor = response.meta?.nextCursor
-                gamesHasMore = response.meta?.nextCursor != null
+                partidos = respuesta.data.sortedBy { it.date }
+                cursorSiguientePartidos = respuesta.meta?.nextCursor
+                hayMasPartidos = respuesta.meta?.nextCursor != null
             } catch (e: Exception) {
-                gamesError = apiErrorMessage(e, "Error desconocido al cargar partidos")
+                errorPartidos = mensajeErrorApi(e, "Error desconocido al cargar partidos")
             }
-            gamesLoading = false
+            cargandoPartidos = false
         }
     }
 
-    fun loadMoreGames() {
-        val cursor = gamesNextCursor ?: return
-        if (gamesLoading) return
+    fun cargarMasPartidos() {
+        val cursor = cursorSiguientePartidos ?: return
+        if (cargandoPartidos) return
         viewModelScope.launch {
-            gamesLoading = true
+            cargandoPartidos = true
             try {
-                val (startDate, endDate) = getGamesDateRange()
+                val (fechaInicio, fechaFin) = obtenerRangoFechasPartidos()
 
-                val response = api.getGames(
+                val respuesta = servicioApi.obtenerPartidos(
                     perPage = 50,
                     cursor = cursor,
-                    startDate = startDate,
-                    endDate = endDate
+                    startDate = fechaInicio,
+                    endDate = fechaFin
                 )
-                games = (games + response.data).sortedBy { it.date }
-                gamesNextCursor = response.meta?.nextCursor
-                gamesHasMore = response.meta?.nextCursor != null
+                partidos = (partidos + respuesta.data).sortedBy { it.date }
+                cursorSiguientePartidos = respuesta.meta?.nextCursor
+                hayMasPartidos = respuesta.meta?.nextCursor != null
             } catch (e: Exception) {
-                gamesError = e.message ?: "Error cargando más partidos"
+                errorPartidos = e.message ?: "Error cargando mas partidos"
             }
-            gamesLoading = false
+            cargandoPartidos = false
         }
     }
 
-    fun playerStatsState(playerId: Int): PlayerStatsUiState {
-        return playerStatsStates[playerId] ?: PlayerStatsUiState()
+    fun estadoEstadisticasJugador(playerId: Int): PlayerStatsUiState {
+        return estadosEstadisticasJugadores[playerId] ?: PlayerStatsUiState()
     }
 
-    fun loadPlayerStats(player: Player, forceRefresh: Boolean = false) {
-        val playerId = player.id
-        val currentState = playerStatsState(playerId)
-        if (currentState.isLoading) return
-        if (currentState.hasLoaded && !forceRefresh) return
+    fun cargarEstadisticasJugador(jugador: Player, forzarRecarga: Boolean = false) {
+        val idJugador = jugador.id
+        val estadoActual = estadoEstadisticasJugador(idJugador)
+        if (estadoActual.isLoading) return
+        if (estadoActual.hasLoaded && !forzarRecarga) return
 
         viewModelScope.launch {
-            playerStatsStates = playerStatsStates + (
-                playerId to currentState.copy(
+            estadosEstadisticasJugadores = estadosEstadisticasJugadores + (
+                idJugador to estadoActual.copy(
                     isLoading = true,
                     error = null
                 )
             )
 
             try {
-                val summary = EspnPlayerStatsRepository.getPlayerSeasonStats(player)
-                playerStatsStates = playerStatsStates + (
-                    playerId to PlayerStatsUiState(
+                val resumen = EspnPlayerStatsRepository.getPlayerSeasonStats(jugador)
+                estadosEstadisticasJugadores = estadosEstadisticasJugadores + (
+                    idJugador to PlayerStatsUiState(
                         isLoading = false,
                         hasLoaded = true,
-                        summary = summary,
+                        summary = resumen,
                         error = null
                     )
                 )
             } catch (e: Exception) {
-                playerStatsStates = playerStatsStates + (
-                    playerId to currentState.copy(
+                estadosEstadisticasJugadores = estadosEstadisticasJugadores + (
+                    idJugador to estadoActual.copy(
                         isLoading = false,
-                        error = playerStatsErrorMessage(e)
+                        error = mensajeErrorEstadisticasJugador(e)
                     )
                 )
             }
         }
     }
 
-    private suspend fun fetchReplacementPool(target: RosterPlayerTemplate): List<Player> {
-        val collected = linkedMapOf<Int, Player>()
+    // Reune una muestra amplia de jugadores compatibles para luego ordenarlos por parecido.
+    private suspend fun obtenerGrupoReemplazo(jugadorObjetivo: RosterPlayerTemplate): List<Player> {
+        val jugadoresRecogidos = linkedMapOf<Int, Player>()
         var cursor: Int? = null
-        var page = 0
+        var pagina = 0
 
-        while (page < 8 && collected.size < 36) {
-            val response = api.getPlayers(
+        while (pagina < 8 && jugadoresRecogidos.size < 36) {
+            val respuesta = servicioApi.obtenerJugadores(
                 perPage = 100,
                 cursor = cursor
             )
 
-            response.data
-                .filter { candidate ->
-                    candidate.id != target.nbaPlayerId &&
-                        candidate.team != null &&
-                        isCompatibleReplacement(target.position, candidate.position.orEmpty())
+            respuesta.data
+                .filter { candidato ->
+                    candidato.id != jugadorObjetivo.nbaPlayerId &&
+                        candidato.team != null &&
+                        esReemplazoCompatible(jugadorObjetivo.position, candidato.position.orEmpty())
                 }
-                .forEach { candidate ->
-                    collected.putIfAbsent(candidate.id, candidate)
+                .forEach { candidato ->
+                    jugadoresRecogidos.putIfAbsent(candidato.id, candidato)
                 }
 
-            cursor = response.meta?.nextCursor
+            cursor = respuesta.meta?.nextCursor
             if (cursor == null) break
-            page++
+            pagina++
         }
 
-        return collected.values.toList()
+        return jugadoresRecogidos.values.toList()
     }
 
-    private suspend fun rankReplacementCandidates(
-        target: RosterPlayerTemplate,
-        targetStats: PlayerSeasonStats?,
-        pool: List<Player>
+    // Pide estadisticas de varios candidatos en paralelo y se queda con los mas cercanos.
+    private suspend fun ordenarCandidatosReemplazo(
+        jugadorObjetivo: RosterPlayerTemplate,
+        estadisticasObjetivo: PlayerSeasonStats?,
+        grupoJugadores: List<Player>
     ): List<ReplacementCandidate> = coroutineScope {
-        pool.take(18).map { candidate ->
+        grupoJugadores.take(18).map { candidato ->
             async {
-                val stats = runCatching {
-                    EspnPlayerStatsRepository.getPlayerSeasonStats(candidate)
+                val estadisticas = runCatching {
+                    EspnPlayerStatsRepository.getPlayerSeasonStats(candidato)
                 }.getOrNull()
 
                 ReplacementCandidate(
-                    player = candidate,
-                    stats = stats,
-                    similarityScore = computeSimilarityScore(
-                        slotPosition = target.position,
-                        targetStats = targetStats,
-                        candidateStats = stats
+                    player = candidato,
+                    stats = estadisticas,
+                    similarityScore = calcularPuntuacionSimilitud(
+                        posicionHueco = jugadorObjetivo.position,
+                        estadisticasObjetivo = estadisticasObjetivo,
+                        estadisticasCandidato = estadisticas
                     ),
-                    similarityLabel = buildSimilarityLabel(
-                        slotPosition = target.position,
-                        targetStats = targetStats,
-                        candidateStats = stats
+                    similarityLabel = construirEtiquetaSimilitud(
+                        posicionHueco = jugadorObjetivo.position,
+                        estadisticasObjetivo = estadisticasObjetivo,
+                        estadisticasCandidato = estadisticas
                     )
                 )
             }
@@ -577,71 +595,75 @@ class NbaViewModel(private val appContext: Context) : ViewModel() {
             .take(8)
     }
 
-    private fun computeSimilarityScore(
-        slotPosition: String,
-        targetStats: PlayerSeasonStats?,
-        candidateStats: PlayerSeasonStats?
+    private fun calcularPuntuacionSimilitud(
+        posicionHueco: String,
+        estadisticasObjetivo: PlayerSeasonStats?,
+        estadisticasCandidato: PlayerSeasonStats?
     ): Double {
-        if (targetStats == null || candidateStats == null) return 9999.0
+        if (estadisticasObjetivo == null || estadisticasCandidato == null) return 9999.0
 
-        val position = primaryPosition(slotPosition)
-        val pointsWeight = when (position) {
+        val posicion = posicionPrincipal(posicionHueco)
+        val pesoPuntos = when (posicion) {
             "PG", "SG", "SF" -> 3.2
             else -> 2.4
         }
-        val reboundsWeight = if (position == "C" || position == "PF") 3.1 else 1.8
-        val assistsWeight = if (position == "PG") 3.3 else 1.9
-        val blocksWeight = if (position == "C" || position == "PF") 2.7 else 0.9
-        val triplesWeight = if (position == "PG" || position == "SG" || position == "SF") 2.1 else 1.1
+        val pesoRebotes = if (posicion == "C" || posicion == "PF") 3.1 else 1.8
+        val pesoAsistencias = if (posicion == "PG") 3.3 else 1.9
+        val pesoTapones = if (posicion == "C" || posicion == "PF") 2.7 else 0.9
+        val pesoTriples = if (posicion == "PG" || posicion == "SG" || posicion == "SF") 2.1 else 1.1
 
-        var score = 0.0
-        score += abs(targetStats.pointsPerGame - candidateStats.pointsPerGame) * pointsWeight
-        score += abs(targetStats.reboundsPerGame - candidateStats.reboundsPerGame) * reboundsWeight
-        score += abs(targetStats.assistsPerGame - candidateStats.assistsPerGame) * assistsWeight
-        score += abs(targetStats.blocksPerGame - candidateStats.blocksPerGame) * blocksWeight
-        score += abs(targetStats.threePointsMade.toDouble() - candidateStats.threePointsMade.toDouble()) / 20.0 * triplesWeight
-        score += abs((targetStats.threePointPercentage ?: 0.0) - (candidateStats.threePointPercentage ?: 0.0)) * 0.18
-        score += abs((targetStats.minutesPerGame ?: 0.0) - (candidateStats.minutesPerGame ?: 0.0)) * 0.6
-        return score
+        var puntuacion = 0.0
+        puntuacion += abs(estadisticasObjetivo.pointsPerGame - estadisticasCandidato.pointsPerGame) * pesoPuntos
+        puntuacion += abs(estadisticasObjetivo.reboundsPerGame - estadisticasCandidato.reboundsPerGame) * pesoRebotes
+        puntuacion += abs(estadisticasObjetivo.assistsPerGame - estadisticasCandidato.assistsPerGame) * pesoAsistencias
+        puntuacion += abs(estadisticasObjetivo.blocksPerGame - estadisticasCandidato.blocksPerGame) * pesoTapones
+        puntuacion += abs(estadisticasObjetivo.threePointsMade.toDouble() - estadisticasCandidato.threePointsMade.toDouble()) / 20.0 * pesoTriples
+        puntuacion += abs((estadisticasObjetivo.threePointPercentage ?: 0.0) - (estadisticasCandidato.threePointPercentage ?: 0.0)) * 0.18
+        puntuacion += abs((estadisticasObjetivo.minutesPerGame ?: 0.0) - (estadisticasCandidato.minutesPerGame ?: 0.0)) * 0.6
+        return puntuacion
     }
 
-    private fun buildSimilarityLabel(
-        slotPosition: String,
-        targetStats: PlayerSeasonStats?,
-        candidateStats: PlayerSeasonStats?
+    private fun construirEtiquetaSimilitud(
+        posicionHueco: String,
+        estadisticasObjetivo: PlayerSeasonStats?,
+        estadisticasCandidato: PlayerSeasonStats?
     ): String {
-        if (targetStats == null || candidateStats == null) {
+        if (estadisticasObjetivo == null || estadisticasCandidato == null) {
             return "Misma posicion, sin comparativa completa"
         }
 
-        val score = computeSimilarityScore(slotPosition, targetStats, candidateStats)
+        val puntuacion = calcularPuntuacionSimilitud(
+            posicionHueco,
+            estadisticasObjetivo,
+            estadisticasCandidato
+        )
         return when {
-            score < 18 -> "Perfil muy parecido"
-            score < 30 -> "Encaje similar"
+            puntuacion < 18 -> "Perfil muy parecido"
+            puntuacion < 30 -> "Encaje similar"
             else -> "Alternativa de misma posicion"
         }
     }
 
-    private fun isCompatibleReplacement(slotPosition: String, candidatePosition: String): Boolean {
-        val slot = primaryPosition(slotPosition)
-        val tokens = normalizePositionTokens(candidatePosition)
-        return when (slot) {
-            "PG" -> tokens.any { it == "PG" || it == "G" }
-            "SG" -> tokens.any { it == "SG" || it == "G" }
-            "SF" -> tokens.any { it == "SF" || it == "F" }
-            "PF" -> tokens.any { it == "PF" || it == "F" }
-            "C" -> "C" in tokens
+    private fun esReemplazoCompatible(posicionHueco: String, posicionCandidato: String): Boolean {
+        val posicionBase = posicionPrincipal(posicionHueco)
+        val tokensPosicion = normalizarTokensPosicion(posicionCandidato)
+        return when (posicionBase) {
+            "PG" -> tokensPosicion.any { it == "PG" || it == "G" }
+            "SG" -> tokensPosicion.any { it == "SG" || it == "G" }
+            "SF" -> tokensPosicion.any { it == "SF" || it == "F" }
+            "PF" -> tokensPosicion.any { it == "PF" || it == "F" }
+            "C" -> "C" in tokensPosicion
             else -> false
         }
     }
 
-    private fun primaryPosition(position: String): String {
-        return normalizePositionTokens(position).firstOrNull()
-            ?: position.uppercase(Locale.US).trim().ifBlank { "G" }
+    private fun posicionPrincipal(posicion: String): String {
+        return normalizarTokensPosicion(posicion).firstOrNull()
+            ?: posicion.uppercase(Locale.US).trim().ifBlank { "G" }
     }
 
-    private fun normalizePositionTokens(position: String): List<String> {
-        return position
+    private fun normalizarTokensPosicion(posicion: String): List<String> {
+        return posicion
             .uppercase(Locale.US)
             .replace("/", "-")
             .split("-", " ")
@@ -653,16 +675,16 @@ class NbaViewModel(private val appContext: Context) : ViewModel() {
             }
     }
 
-    private fun rosterTemplateToPlayer(player: RosterPlayerTemplate): Player? {
-        val parts = player.name.trim().split(" ").filter { it.isNotBlank() }
-        val firstName = parts.firstOrNull() ?: return null
-        val lastName = parts.drop(1).joinToString(" ").ifBlank { "-" }
+    private fun plantillaAJugador(jugadorPlantilla: RosterPlayerTemplate): Player? {
+        val partesNombre = jugadorPlantilla.name.trim().split(" ").filter { it.isNotBlank() }
+        val nombre = partesNombre.firstOrNull() ?: return null
+        val apellidos = partesNombre.drop(1).joinToString(" ").ifBlank { "-" }
 
         return Player(
-            id = player.nbaPlayerId ?: -abs(player.name.hashCode()),
-            firstName = firstName,
-            lastName = lastName,
-            position = player.position,
+            id = jugadorPlantilla.nbaPlayerId ?: -abs(jugadorPlantilla.name.hashCode()),
+            firstName = nombre,
+            lastName = apellidos,
+            position = jugadorPlantilla.position,
             height = null,
             weight = null,
             jerseyNumber = null,
@@ -675,163 +697,165 @@ class NbaViewModel(private val appContext: Context) : ViewModel() {
         )
     }
 
-    private fun getGamesDateRange(): Pair<String?, String?> {
-        val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-        val today = Calendar.getInstance()
-        val startCalendar = today.clone() as Calendar
-        val endCalendar = today.clone() as Calendar
+    // Convierte los filtros de anio y mes en un rango exacto para la API.
+    private fun obtenerRangoFechasPartidos(): Pair<String?, String?> {
+        val formateador = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+        val hoy = Calendar.getInstance()
+        val calendarioInicio = hoy.clone() as Calendar
+        val calendarioFin = hoy.clone() as Calendar
 
         when {
-            selectedGameYear != null && selectedGameMonth != null -> {
-                startCalendar.set(Calendar.YEAR, selectedGameYear!!)
-                startCalendar.set(Calendar.MONTH, selectedGameMonth!! - 1)
-                startCalendar.set(Calendar.DAY_OF_MONTH, 1)
+            anioPartidosSeleccionado != null && mesPartidosSeleccionado != null -> {
+                calendarioInicio.set(Calendar.YEAR, anioPartidosSeleccionado!!)
+                calendarioInicio.set(Calendar.MONTH, mesPartidosSeleccionado!! - 1)
+                calendarioInicio.set(Calendar.DAY_OF_MONTH, 1)
 
-                endCalendar.set(Calendar.YEAR, selectedGameYear!!)
-                endCalendar.set(Calendar.MONTH, selectedGameMonth!! - 1)
-                endCalendar.set(Calendar.DAY_OF_MONTH, endCalendar.getActualMaximum(Calendar.DAY_OF_MONTH))
+                calendarioFin.set(Calendar.YEAR, anioPartidosSeleccionado!!)
+                calendarioFin.set(Calendar.MONTH, mesPartidosSeleccionado!! - 1)
+                calendarioFin.set(Calendar.DAY_OF_MONTH, calendarioFin.getActualMaximum(Calendar.DAY_OF_MONTH))
             }
 
-            selectedGameYear != null -> {
-                startCalendar.set(Calendar.YEAR, selectedGameYear!!)
-                startCalendar.set(Calendar.MONTH, Calendar.JANUARY)
-                startCalendar.set(Calendar.DAY_OF_MONTH, 1)
+            anioPartidosSeleccionado != null -> {
+                calendarioInicio.set(Calendar.YEAR, anioPartidosSeleccionado!!)
+                calendarioInicio.set(Calendar.MONTH, Calendar.JANUARY)
+                calendarioInicio.set(Calendar.DAY_OF_MONTH, 1)
 
-                endCalendar.set(Calendar.YEAR, selectedGameYear!!)
-                endCalendar.set(Calendar.MONTH, Calendar.DECEMBER)
-                endCalendar.set(Calendar.DAY_OF_MONTH, 31)
+                calendarioFin.set(Calendar.YEAR, anioPartidosSeleccionado!!)
+                calendarioFin.set(Calendar.MONTH, Calendar.DECEMBER)
+                calendarioFin.set(Calendar.DAY_OF_MONTH, 31)
             }
 
-            selectedGameMonth != null -> {
-                startCalendar.set(Calendar.YEAR, today.get(Calendar.YEAR))
-                startCalendar.set(Calendar.MONTH, selectedGameMonth!! - 1)
-                startCalendar.set(Calendar.DAY_OF_MONTH, 1)
+            mesPartidosSeleccionado != null -> {
+                calendarioInicio.set(Calendar.YEAR, hoy.get(Calendar.YEAR))
+                calendarioInicio.set(Calendar.MONTH, mesPartidosSeleccionado!! - 1)
+                calendarioInicio.set(Calendar.DAY_OF_MONTH, 1)
 
-                endCalendar.set(Calendar.YEAR, today.get(Calendar.YEAR))
-                endCalendar.set(Calendar.MONTH, selectedGameMonth!! - 1)
-                endCalendar.set(Calendar.DAY_OF_MONTH, endCalendar.getActualMaximum(Calendar.DAY_OF_MONTH))
+                calendarioFin.set(Calendar.YEAR, hoy.get(Calendar.YEAR))
+                calendarioFin.set(Calendar.MONTH, mesPartidosSeleccionado!! - 1)
+                calendarioFin.set(Calendar.DAY_OF_MONTH, calendarioFin.getActualMaximum(Calendar.DAY_OF_MONTH))
             }
 
             else -> {
-                startCalendar.add(Calendar.MONTH, -1)
-                endCalendar.add(Calendar.DAY_OF_YEAR, 7)
+                calendarioInicio.add(Calendar.MONTH, -1)
+                calendarioFin.add(Calendar.DAY_OF_YEAR, 7)
             }
         }
 
-        return formatter.format(startCalendar.time) to formatter.format(endCalendar.time)
+        return formateador.format(calendarioInicio.time) to formateador.format(calendarioFin.time)
     }
 
-    private fun playerStatsErrorMessage(error: Exception): String {
-        return error.message ?: "Error cargando estadisticas"
+    private fun mensajeErrorEstadisticasJugador(excepcion: Exception): String {
+        return excepcion.message ?: "Error cargando estadisticas"
     }
 
-    private fun prefetchSortedPlayerStats() {
-        if (!selectedPlayerSortOption.requiresStats) return
-        if (shouldUseSeasonLeaderboard()) {
-            loadSeasonLeaderboard()
+    private fun precargarEstadisticasSegunOrden() {
+        if (!ordenJugadorSeleccionado.requiresStats) return
+        if (debeUsarRankingTemporada()) {
+            cargarRankingTemporada()
             return
         }
-        visiblePlayers.forEach { player ->
-            loadPlayerStats(player)
+        jugadoresVisibles.forEach { jugador ->
+            cargarEstadisticasJugador(jugador)
         }
     }
 
-    private fun shouldUseSeasonLeaderboard(): Boolean {
-        return selectedPlayerSortOption.requiresStats && playerSearchQuery.trim().isBlank()
+    private fun debeUsarRankingTemporada(): Boolean {
+        return ordenJugadorSeleccionado.requiresStats && busquedaJugador.trim().isBlank()
     }
 
-    private fun playerSourceForCurrentMode(): List<Player> {
-        return if (shouldUseSeasonLeaderboard() && seasonLeaderboardPlayers.isNotEmpty()) {
-            seasonLeaderboardPlayers
+    private fun fuenteJugadoresModoActual(): List<Player> {
+        return if (debeUsarRankingTemporada() && jugadoresRankingTemporada.isNotEmpty()) {
+            jugadoresRankingTemporada
         } else {
-            players
+            jugadores
         }
     }
 
-    private fun playerComparator(sortOption: PlayerSortOption): Comparator<Player> {
-        return when (sortOption) {
+    private fun comparadorJugadores(criterioOrden: PlayerSortOption): Comparator<Player> {
+        return when (criterioOrden) {
             PlayerSortOption.NAME -> compareBy<Player> { it.lastName.lowercase(Locale.US) }
                 .thenBy { it.firstName.lowercase(Locale.US) }
 
-            else -> compareByDescending<Player> { playerSortMetric(it, sortOption) }
+            else -> compareByDescending<Player> { metricaOrdenJugador(it, criterioOrden) }
                 .thenBy { it.lastName.lowercase(Locale.US) }
                 .thenBy { it.firstName.lowercase(Locale.US) }
         }
     }
 
-    private fun playerSortMetric(player: Player, sortOption: PlayerSortOption): Double {
-        val summary = playerSummaryForSorting(player.id) ?: return Double.NEGATIVE_INFINITY
-        return when (sortOption) {
+    private fun metricaOrdenJugador(jugador: Player, criterioOrden: PlayerSortOption): Double {
+        val resumen = resumenJugadorParaOrdenar(jugador.id) ?: return Double.NEGATIVE_INFINITY
+        return when (criterioOrden) {
             PlayerSortOption.NAME -> 0.0
-            PlayerSortOption.POINTS -> summary.pointsPerGame
-            PlayerSortOption.REBOUNDS -> summary.reboundsPerGame
-            PlayerSortOption.ASSISTS -> summary.assistsPerGame
-            PlayerSortOption.STEALS -> summary.stealsPerGame
-            PlayerSortOption.BLOCKS -> summary.blocksPerGame
-            PlayerSortOption.MINUTES -> summary.minutesPerGame ?: Double.NEGATIVE_INFINITY
+            PlayerSortOption.POINTS -> resumen.pointsPerGame
+            PlayerSortOption.REBOUNDS -> resumen.reboundsPerGame
+            PlayerSortOption.ASSISTS -> resumen.assistsPerGame
+            PlayerSortOption.STEALS -> resumen.stealsPerGame
+            PlayerSortOption.BLOCKS -> resumen.blocksPerGame
+            PlayerSortOption.MINUTES -> resumen.minutesPerGame ?: Double.NEGATIVE_INFINITY
         }
     }
 
-    private fun loadSeasonLeaderboard(forceRefresh: Boolean = false) {
-        val season = currentRegularSeason()
-        if (playersLoading) return
-        if (!forceRefresh && seasonLeaderboardSeason == season && seasonLeaderboardPlayers.isNotEmpty()) {
+    // Construye un ranking propio con estadisticas acumuladas cuando no hay busqueda activa.
+    private fun cargarRankingTemporada(forzarRecarga: Boolean = false) {
+        val temporada = temporadaRegularActual()
+        if (cargandoJugadores) return
+        if (!forzarRecarga && temporadaRankingTemporada == temporada && jugadoresRankingTemporada.isNotEmpty()) {
             return
         }
 
         viewModelScope.launch {
-            playersLoading = true
-            playersError = null
+            cargandoJugadores = true
+            errorJugadores = null
             try {
-                val leaderboard = fetchSeasonLeaderboard(season)
-                seasonLeaderboardPlayers = leaderboard.map { it.player }
-                seasonLeaderboardStats = leaderboard.associate { it.player.id to it.summary }
-                seasonLeaderboardSeason = season
+                val ranking = obtenerRankingTemporada(temporada)
+                jugadoresRankingTemporada = ranking.map { it.player }
+                estadisticasRankingTemporada = ranking.associate { it.player.id to it.summary }
+                temporadaRankingTemporada = temporada
             } catch (e: Exception) {
-                playersError = apiErrorMessage(
+                errorJugadores = mensajeErrorApi(
                     e,
                     "No se pudo construir el ranking de temporada de jugadores"
                 )
             }
-            playersLoading = false
+            cargandoJugadores = false
         }
     }
 
-    private suspend fun fetchSeasonLeaderboard(season: Int): List<PlayerSeasonLeaderboardEntry> {
-        val accumulators = linkedMapOf<Int, MutablePlayerSeasonAccumulator>()
+    private suspend fun obtenerRankingTemporada(temporada: Int): List<PlayerSeasonLeaderboardEntry> {
+        val acumuladores = linkedMapOf<Int, MutablePlayerSeasonAccumulator>()
         var cursor: Int? = null
-        var page = 0
+        var pagina = 0
 
         do {
-            val response = api.getStats(
-                seasons = listOf(season),
+            val respuesta = servicioApi.obtenerEstadisticas(
+                seasons = listOf(temporada),
                 perPage = 100,
                 cursor = cursor
             )
 
-            response.data.forEach { stat ->
-                val statPlayer = stat.player ?: return@forEach
-                val team = statPlayer.team ?: stat.team ?: return@forEach
-                val game = stat.game ?: return@forEach
+            respuesta.data.forEach { estadistica ->
+                val jugadorEstadistica = estadistica.player ?: return@forEach
+                val equipo = jugadorEstadistica.team ?: estadistica.team ?: return@forEach
+                val partido = estadistica.game ?: return@forEach
 
-                if (game.postseason) return@forEach
-                if (team.abbreviation !in currentNbaTeamAbbreviations) return@forEach
+                if (partido.postseason) return@forEach
+                if (equipo.abbreviation !in currentNbaTeamAbbreviations) return@forEach
 
-                val normalizedPlayer = statPlayer.copy(team = team)
-                val accumulator = accumulators.getOrPut(normalizedPlayer.id) {
-                    MutablePlayerSeasonAccumulator(player = normalizedPlayer)
+                val jugadorNormalizado = jugadorEstadistica.copy(team = equipo)
+                val acumulador = acumuladores.getOrPut(jugadorNormalizado.id) {
+                    MutablePlayerSeasonAccumulator(player = jugadorNormalizado)
                 }
-                accumulator.player = normalizedPlayer
-                accumulator.add(stat)
+                acumulador.player = jugadorNormalizado
+                acumulador.add(estadistica)
             }
 
-            cursor = response.meta?.nextCursor
-            page++
-        } while (cursor != null && page < 500)
+            cursor = respuesta.meta?.nextCursor
+            pagina++
+        } while (cursor != null && pagina < 500)
 
-        return accumulators.values
+        return acumuladores.values
             .asSequence()
-            .mapNotNull { it.toLeaderboardEntryOrNull(season) }
+            .mapNotNull { it.toLeaderboardEntryOrNull(temporada) }
             .filter { entry ->
                 entry.player.team != null &&
                     entry.summary.gamesPlayed >= MIN_GAMES_FOR_PLAYER_LEADERBOARD
@@ -839,82 +863,84 @@ class NbaViewModel(private val appContext: Context) : ViewModel() {
             .toList()
     }
 
-    private fun apiErrorMessage(error: Exception, fallback: String): String {
-        val message = error.message.orEmpty()
-        return if (message.contains("429")) {
+    private fun mensajeErrorApi(excepcion: Exception, mensajeAlternativo: String): String {
+        val mensaje = excepcion.message.orEmpty()
+        return if (mensaje.contains("429")) {
             "Demasiadas peticiones a la API. Espera unos segundos y vuelve a intentarlo."
         } else {
-            message.ifBlank { fallback }
+            mensaje.ifBlank { mensajeAlternativo }
         }
     }
 
-    private fun readCachedPlayersPage(query: String): CachedPlayersPage? {
-        val raw = cachePreferences.getString(playersCacheKey(query), null) ?: return null
+    // Recupera la ultima pagina guardada para evitar peticiones repetidas al escribir lo mismo.
+    private fun leerPaginaJugadoresCache(consulta: String): CachedPlayersPage? {
+        val contenidoCache = preferenciasCache.getString(claveCacheJugadores(consulta), null) ?: return null
         return runCatching {
             gson.fromJson<CachedPlayersPage>(
-                raw,
+                contenidoCache,
                 object : TypeToken<CachedPlayersPage>() {}.type
             )
         }.getOrNull()
     }
 
-    private fun cachePlayersPage(
-        query: String,
-        players: List<Player>,
+    private fun guardarPaginaJugadoresCache(
+        consulta: String,
+        jugadores: List<Player>,
         nextCursor: Int?
     ) {
-        val payload = CachedPlayersPage(
-            players = players,
+        val cargaCache = CachedPlayersPage(
+            jugadores = jugadores,
             nextCursor = nextCursor,
             cachedAt = System.currentTimeMillis()
         )
-        cachePreferences.edit()
-            .putString(playersCacheKey(query), gson.toJson(payload))
+        preferenciasCache.edit()
+            .putString(claveCacheJugadores(consulta), gson.toJson(cargaCache))
             .apply()
     }
 
-    private fun playersCacheKey(query: String): String {
-        val normalized = query
+    private fun claveCacheJugadores(consulta: String): String {
+        val consultaNormalizada = consulta
             .trim()
             .lowercase(Locale.US)
             .replace(Regex("[^a-z0-9]+"), "_")
             .trim('_')
             .ifBlank { "all" }
-        return "players_cache_$normalized"
+        return "cache_jugadores_$consultaNormalizada"
     }
 
-    private fun isCacheFresh(cache: CachedPlayersPage): Boolean {
-        return System.currentTimeMillis() - cache.cachedAt <= playersCacheDurationMs
+    private fun cacheSigueVigente(cache: CachedPlayersPage): Boolean {
+        return System.currentTimeMillis() - cache.cachedAt <= duracionCacheJugadoresMs
     }
 
-    private suspend fun loadSeasonGames(season: Int): List<Game> {
-        val seasonGames = mutableListOf<Game>()
+    private suspend fun cargarPartidosTemporada(temporada: Int): List<Game> {
+        val partidosTemporada = mutableListOf<Game>()
         var cursor: Int? = null
 
         do {
-            val response = api.getGames(
-                seasons = listOf(season),
+            val respuesta = servicioApi.obtenerPartidos(
+                seasons = listOf(temporada),
                 perPage = 100,
                 cursor = cursor
             )
-            seasonGames += response.data
-            cursor = response.meta?.nextCursor
+            partidosTemporada += respuesta.data
+            cursor = respuesta.meta?.nextCursor
         } while (cursor != null)
 
-        return seasonGames
+        return partidosTemporada
     }
 
-    private fun buildTeamStandings(
-        teams: List<Team>,
+    // Reconstruye una clasificacion simple a partir de partidos finalizados cuando hace falta.
+    private fun construirClasificacionEquipos(
+        equipos: List<Team>,
         seasonGames: List<Game>
     ): List<TeamStandingSummary> {
-        val records = teams.associate { team ->
+        val records = equipos.associate { team ->
             team.id to MutableTeamRecord(team = team)
         }.toMutableMap()
 
         seasonGames
             .asSequence()
-            .filter { !it.postseason && isCompletedGame(it) }
+            .filter { !it.postseason && esPartidoFinalizado(it) }
             .forEach { game ->
                 val homeRecord = records.getOrPut(game.homeTeam.id) {
                     MutableTeamRecord(team = game.homeTeam)
@@ -980,8 +1006,9 @@ class NbaViewModel(private val appContext: Context) : ViewModel() {
             .sortedBy { it.team.fullName }
     }
 
-    private fun buildEmptyStandings(teams: List<Team>): List<TeamStandingSummary> {
-        return teams.map { team ->
+    // Devuelve una tabla vacia para no romper la interfaz cuando aun no hay datos.
+    private fun construirClasificacionVacia(equipos: List<Team>): List<TeamStandingSummary> {
+        return equipos.map { team ->
             TeamStandingSummary(
                 team = team,
                 leagueRank = 0,
@@ -993,24 +1020,27 @@ class NbaViewModel(private val appContext: Context) : ViewModel() {
         }
     }
 
-    private fun currentRegularSeason(): Int {
+    // Ajusta el anio segun el mes para encajar con el calendario real de la NBA.
+    private fun temporadaRegularActual(): Int {
         val calendar = Calendar.getInstance()
         val year = calendar.get(Calendar.YEAR)
         val month = calendar.get(Calendar.MONTH)
         return if (month >= Calendar.OCTOBER) year else year - 1
     }
 
-    private fun currentEspnSeason(): Int {
+    // ESPN etiqueta la temporada con el anio en que termina, no con el que empieza.
+    private fun temporadaEspnActual(): Int {
         val calendar = Calendar.getInstance()
         val year = calendar.get(Calendar.YEAR)
         val month = calendar.get(Calendar.MONTH)
         return if (month >= Calendar.OCTOBER) year + 1 else year
     }
 
-    private fun isCompletedGame(game: Game): Boolean {
+    private fun esPartidoFinalizado(game: Game): Boolean {
         return game.status.contains("Final", ignoreCase = true)
     }
 
+    // Acumula el balance de cada equipo para luego derivar su posicion en la tabla.
     private data class MutableTeamRecord(
         val team: Team,
         var points: Int = 0,
@@ -1018,11 +1048,13 @@ class NbaViewModel(private val appContext: Context) : ViewModel() {
         var losses: Int = 0
     )
 
+    // Empareja el jugador con su resumen estadistico ya calculado para el ranking.
     private data class PlayerSeasonLeaderboardEntry(
         val player: Player,
         val summary: PlayerSeasonStats
     )
 
+    // Suma estadisticas partido a partido para construir un resumen medio de temporada.
     private data class MutablePlayerSeasonAccumulator(
         var player: Player,
         var gamesPlayed: Int = 0,
@@ -1048,6 +1080,7 @@ class NbaViewModel(private val appContext: Context) : ViewModel() {
         var doubleDoubles: Int = 0,
         var tripleDoubles: Int = 0
     ) {
+        // Agrega una linea estadistica individual al acumulado de temporada.
         fun add(stat: com.example.nba_salary_manager.data.model.PlayerStats) {
             gamesPlayed += 1
             Companion.parseMinutesPlayed(stat.min)?.let { minutes ->
@@ -1099,6 +1132,7 @@ class NbaViewModel(private val appContext: Context) : ViewModel() {
             if (doubleDigitCategories >= 3) tripleDoubles += 1
         }
 
+        // Convierte el acumulado bruto en un resumen apto para ordenar y mostrar en interfaz.
         fun toLeaderboardEntryOrNull(season: Int): PlayerSeasonLeaderboardEntry? {
             if (gamesPlayed == 0) return null
 
@@ -1141,6 +1175,7 @@ class NbaViewModel(private val appContext: Context) : ViewModel() {
         }
     }
 
+    // Lista cerrada de franquicias vigentes para filtrar equipos historicos o datos inconsistentes.
     private val currentNbaTeamAbbreviations = setOf(
         "ATL", "BOS", "BKN", "CHA", "CHI", "CLE", "DAL", "DEN", "DET", "GSW",
         "HOU", "IND", "LAC", "LAL", "MEM", "MIA", "MIL", "MIN", "NOP", "NYK",
@@ -1150,14 +1185,17 @@ class NbaViewModel(private val appContext: Context) : ViewModel() {
     private companion object {
         const val MIN_GAMES_FOR_PLAYER_LEADERBOARD = 10
 
+        // Evita divisiones por cero cuando todavia no hay suficientes muestras.
         fun averageOrNull(total: Double, samples: Int): Double? {
             return if (samples > 0) total / samples else null
         }
 
+        // Devuelve porcentajes en base 100 para que la capa de UI no tenga que convertirlos.
         fun percentage(made: Int, attempted: Int): Double? {
             return if (attempted > 0) made.toDouble() / attempted * 100.0 else null
         }
 
+        // Admite minutos en formato decimal o en formato mm:ss segun la fuente de datos.
         fun parseMinutesPlayed(value: String?): Double? {
             if (value.isNullOrBlank()) return null
             return if (":" in value) {
@@ -1171,8 +1209,9 @@ class NbaViewModel(private val appContext: Context) : ViewModel() {
         }
     }
 
+    // Estructura serializable que se guarda en preferencias para reutilizar paginas recientes.
     private data class CachedPlayersPage(
-        val players: List<Player>,
+        val jugadores: List<Player>,
         val nextCursor: Int?,
         val cachedAt: Long
     )

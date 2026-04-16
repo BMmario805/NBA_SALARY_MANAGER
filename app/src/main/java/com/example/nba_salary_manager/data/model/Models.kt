@@ -52,8 +52,8 @@ enum class PlayerPositionFilter(val label: String) {
     PG("Base"),
     SG("Escolta"),
     SF("Alero"),
-    PF("Ala-pivot"),
-    C("Pivot");
+    PF("Ala-pívot"),
+    C("Pívot");
 
     fun matches(position: String?): Boolean {
         if (this == ALL) return true
